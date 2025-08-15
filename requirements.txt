@@ -4,7 +4,7 @@ sqlalchemy
 alembic
 psycopg2-binary
 slowapi
-python-dotenv
+python-decouple
 pyjwt
 passlib
 bcrypt

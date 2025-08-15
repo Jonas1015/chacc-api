@@ -1,4 +1,5 @@
 -r requirements.txt
+pip-tools
 pytest
 pytest-asyncio
 httpx

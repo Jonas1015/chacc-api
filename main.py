@@ -331,7 +331,7 @@ async def get_core_data(request: Request):
     return {"data": "This is data from the core Open-TZ backbone."}
 
 
-@app.post("/modules/install/")
+@app.post("/module")
 async def install_otz_module_endpoint(file: UploadFile = File(...)):
     """
     Uploads and installs an .otz module package.
@@ -377,8 +377,6 @@ async def get_modules_endpoint():
     """
     Retrieves a list of all installed modules and their current status.
     """
-    # In a real system, you'd load plugin_states from a database for persistence
-    # Here, it's just what was loaded at startup.
     return {
         "modules": [
             {"name": name, "enabled": state["enabled"], "info": state["info"]}
@@ -397,7 +395,7 @@ async def enable_module_endpoint(module_name: str):
     if loaded_modules[module_name]["enabled"]:
         return JSONResponse(content={"message": f"Module '{module_name}' is already enabled."})
 
-    # In a real system, persist this state change to a database
+    
     loaded_modules[module_name]["enabled"] = True
     opentz_logger.info(f"Module '{module_name}' marked as enabled. Please restart the API server to activate.")
     return JSONResponse(
@@ -416,7 +414,7 @@ async def disable_module_endpoint(module_name: str):
     if not loaded_modules[module_name]["enabled"]:
         return JSONResponse(content={"message": f"Module '{module_name}' is already disabled."})
 
-    # In a real system, persist this state change to a database
+    
     loaded_modules[module_name]["enabled"] = False
     opentz_logger.info(f"Module '{module_name}' marked as disabled. Please restart the API server to deactivate.")
     return JSONResponse(
@@ -435,16 +433,14 @@ async def uninstall_module_endpoint(module_name: str):
 
     module_path = os.path.join(MODULES_INSTALLED_DIR, module_name)
     if not os.path.exists(module_path):
-        del loaded_modules[module_name] # Clean up state if directory somehow missing
+        del loaded_modules[module_name]
         opentz_logger.warning(f"Module directory for '{module_name}' was missing, but module was in loaded state. Cleaned up state.")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Module directory already missing. State cleaned up.")
 
     try:
-        # 1. Remove module code directory
         shutil.rmtree(module_path)
-        del loaded_modules[module_name] # Remove from in-memory state
+        del loaded_modules[module_name]
 
-        # 2. Re-resolve and reinstall dependencies for the remaining active modules
         _re_resolve_dependencies()
 
         opentz_logger.info(f"Module '{module_name}' uninstalled. Python environment updated. Please restart the API server to apply changes.")
@@ -454,7 +450,7 @@ async def uninstall_module_endpoint(module_name: str):
         )
 
     except HTTPException as e:
-        raise e # Re-raise FastAPI HTTP exceptions directly
+        raise e
     except Exception as e:
         opentz_logger.exception(f"Error during module uninstall of '{module_name}'.")
         raise HTTPException(
@@ -462,9 +458,6 @@ async def uninstall_module_endpoint(module_name: str):
             detail=f"Failed to uninstall module: {e}. Manual intervention may be required."
         )
 
-# --- Uvicorn Run Command ---
 if __name__ == "__main__":
     import uvicorn
-    # IMPORTANT: The reload flag below is great for development, but for production
-    # you would manage restarts via your deployment system (e.g., Docker, Kubernetes).
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8800)

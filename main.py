@@ -7,7 +7,7 @@ import json
 import logging
 import subprocess
 import zipfile
-from fastapi import FastAPI, Request, status, UploadFile, File, HTTPException
+from fastapi import Depends, FastAPI, Request, status, UploadFile, File, HTTPException
 from fastapi.concurrency import asynccontextmanager
 from fastapi.responses import JSONResponse
 from slowapi import Limiter
@@ -15,14 +15,15 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi.routing import APIRoute, APIRouter
 from functools import wraps
+from sqlalchemy.orm import Session
 
 from src.rate_limiter import limiter, rate_limit_exceeded_handler
 from src.core_services import BackboneContext
 from src.logger import configure_logging, LogLevels
 from src.database import get_db, OpenTzBaseModel, engine, ModuleRecord
 
-MODULES_INSTALLED_DIR = "modules_installed"
-MODULES_UPLOAD_DIR = "modules_upload"
+MODULES_INSTALLED_DIR = ".modules_installed"
+MODULES_UPLOAD_DIR = ".modules_upload"
 
 os.makedirs(MODULES_INSTALLED_DIR, exist_ok=True)
 os.makedirs(MODULES_UPLOAD_DIR, exist_ok=True)
@@ -72,7 +73,7 @@ async def _re_resolve_dependencies():
             else:
                 opentz_logger.warning("No project-level requirements.txt found for backbone core.")
 
-            await anext(get_db())
+            db = await anext(get_db())
             try:
                 installed_modules_records = db.query(ModuleRecord).all()
                 for record in installed_modules_records:
@@ -118,10 +119,11 @@ async def _re_resolve_dependencies():
         opentz_logger.info("Dependency re-resolution process finished.")
 
 
-async def install_module_from_otz(otz_filepath: str):
+def install_module_from_otz(otz_filepath: str, db: Session):
     """
     Installs a module from a .otz file.
     Unzips it into MODULES_INSTALLED_DIR and reads its metadata.
+    Persists module metadata to the database.
     Does NOT activate or load routes into the running app.
     """
     if not os.path.exists(otz_filepath):
@@ -134,8 +136,8 @@ async def install_module_from_otz(otz_filepath: str):
 
     module_meta = None
     module_name = None
+    module_target_path = None
 
-    db = await anext(get_db())
     try:
         with zipfile.ZipFile(otz_filepath, 'r') as zip_ref:
             zip_ref.extractall(temp_extract_dir)
@@ -150,7 +152,7 @@ async def install_module_from_otz(otz_filepath: str):
         module_name = module_meta.get("name")
         if not module_name:
             raise ValueError("module_meta.json must contain a 'name' field.")
-
+        
         entry_point = module_meta.get("entry_point")
         if not entry_point or ":" not in entry_point:
             raise ValueError("Invalid module_meta.json: 'entry_point' field is missing or malformed (e.g., 'module.main:setup_plugin').")
@@ -161,7 +163,7 @@ async def install_module_from_otz(otz_filepath: str):
 
         module_target_path = os.path.join(MODULES_INSTALLED_DIR, module_name)
         if os.path.exists(module_target_path):
-            opentz_logger.warning(f"Existing module '{module_name}' found. Overwriting.")
+            opentz_logger.warning(f"Existing module '{module_name}' found. Overwriting code directory.")
             shutil.rmtree(module_target_path)
         
         shutil.copytree(extracted_module_code_path, module_target_path)
@@ -170,7 +172,6 @@ async def install_module_from_otz(otz_filepath: str):
         req_filepath_temp = os.path.join(temp_extract_dir, module_meta.get("dependencies_file", "requirements.txt"))
         if os.path.exists(req_filepath_temp):
             shutil.copy(req_filepath_temp, os.path.join(module_target_path, module_meta.get("dependencies_file", "requirements.txt")))
-
 
         opentz_logger.info(f"Module '{module_name}' extracted to {module_target_path}")
 
@@ -181,12 +182,11 @@ async def install_module_from_otz(otz_filepath: str):
             opentz_logger.info(f"New database record created for module '{module_name}'.")
         else:
             opentz_logger.info(f"Existing database record found for module '{module_name}'. Updating.")
-
+        
         module_record.display_name = module_meta.get("display_name", module_name)
         module_record.version = module_meta.get("version", "0.0.0")
         module_record.author = module_meta.get("author", "Unknown")
         module_record.description = module_meta.get("description", "No description provided.")
-
         if module_meta.get("status") is not None:
              module_record.is_enabled = module_meta.get("status").lower() == "enabled"
         else:
@@ -203,12 +203,15 @@ async def install_module_from_otz(otz_filepath: str):
         return module_meta
     except Exception as e:
         opentz_logger.error(f"Failed to process .otz file {otz_filepath}: {e}", exc_info=True)
-        if os.path.exists(module_target_path):
+        db.rollback()
+        if module_target_path and os.path.exists(module_target_path):
             shutil.rmtree(module_target_path)
         raise
     finally:
+        db.close()
         if os.path.exists(temp_extract_dir):
             shutil.rmtree(temp_extract_dir)
+            
 
 async def load_modules():
     """
@@ -231,8 +234,7 @@ async def load_modules():
     )
     
     db = await anext(get_db())
-    try: 
-        
+    try:
         all_module_records = db.query(ModuleRecord).all()
 
         for record in all_module_records:
@@ -252,11 +254,16 @@ async def load_modules():
                     continue
 
                 module_relative_path, func_name = entry_point_str.split(":")
-                plugin_code_dir = os.path.join(module_path, "module")
+                plugin_code_dir = os.path.join(module_path)
                 plugin_main_file_path = os.path.join(plugin_code_dir, *module_relative_path.split('.')) + ".py"
 
                 if not os.path.exists(plugin_main_file_path):
                     opentz_logger.warning(f"Skipping '{module_name}': Entry point file '{plugin_main_file_path}' not found on disk.")
+
+                    if(record.is_enabled):
+                        opentz_logger.error(f"Module '{module_name}' is marked as enabled in DB but entry point file is missing. Disabling module.")
+                        record.is_enabled = False
+                        db.commit()
                     continue
 
                 unique_module_import_name = f"otz_module_{module_name.replace('-', '_')}_{module_relative_path.replace('.', '_')}"
@@ -285,13 +292,13 @@ async def load_modules():
 
                 if plugin_router and isinstance(plugin_router, APIRouter):
                     mounted_routers[module_name] = {
-                        "enabled": is_enabled, # This reflects the DB state
+                        "enabled": is_enabled,
                         "router": plugin_router,
                         "info": plugin_info_for_display,
                         "meta": module_meta
                     }
                     if is_enabled:
-                        router_prefix = record.base_path_prefix # Use prefix from DB
+                        router_prefix = record.base_path_prefix
                         app.include_router(plugin_router, prefix=router_prefix)
                         opentz_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {router_prefix}")
                     else:
@@ -319,7 +326,7 @@ async def load_modules():
 async def read_root(request: Request):
     """
     Root endpoint of the Open-TZ API backbone.
-    """
+    """# Use prefix from DB
     return {"message": "Welcome to the Open-TZ API Backbone! Check /docs for API modules."}
 
 @app.get("/core-data")
@@ -331,8 +338,8 @@ async def get_core_data(request: Request):
     return {"data": "This is data from the core Open-TZ backbone."}
 
 
-@app.post("/module")
-async def install_otz_module_endpoint(file: UploadFile = File(...)):
+@app.post("/modules/")
+async def install_otz_module_endpoint(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
     Uploads and installs an .otz module package.
     Requires server restart to activate/deactivate changes.
@@ -348,7 +355,7 @@ async def install_otz_module_endpoint(file: UploadFile = File(...)):
         with open(otz_filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
-        module_meta = install_module_from_otz(otz_filepath)
+        module_meta = install_module_from_otz(otz_filepath, db)
         module_name = module_meta.get("name")
 
         _re_resolve_dependencies()
@@ -373,85 +380,107 @@ async def install_otz_module_endpoint(file: UploadFile = File(...)):
 
 
 @app.get("/modules/")
-async def get_modules_endpoint():
+async def get_modules_endpoint(db: Session = Depends(get_db)):
     """
-    Retrieves a list of all installed modules and their current status.
+    Retrieves a list of all installed modules and their current status from the database.
     """
+    module_records = db.query(ModuleRecord).all()
     return {
         "modules": [
-            {"name": name, "enabled": state["enabled"], "info": state["info"]}
-            for name, state in loaded_modules.items()
+            {
+                "name": record.name,
+                "display_name": record.display_name,
+                "version": record.version,
+                "author": record.author,
+                "description": record.description,
+                "is_enabled": record.is_enabled,
+                "base_path_prefix": record.base_path_prefix,
+            }
+            for record in module_records
         ]
     }
 
 @app.post("/modules/{module_name}/enable")
-async def enable_module_endpoint(module_name: str):
+async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)):
     """
-    Marks a module as enabled. Requires server restart to take effect.
+    Marks a module as enabled in the database. Requires server restart to take effect.
     """
-    if module_name not in loaded_modules:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found.")
+    module_record = db.query(ModuleRecord).filter(ModuleRecord.name == module_name).first()
+    if not module_record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found in database.")
 
-    if loaded_modules[module_name]["enabled"]:
+    if module_record.is_enabled:
         return JSONResponse(content={"message": f"Module '{module_name}' is already enabled."})
 
-    
-    loaded_modules[module_name]["enabled"] = True
-    opentz_logger.info(f"Module '{module_name}' marked as enabled. Please restart the API server to activate.")
+    module_record.is_enabled = True
+    db.commit()
+    db.refresh(module_record)
+    opentz_logger.info(f"Module '{module_name}' marked as enabled in DB. Please restart the API server to activate.")
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": f"Module '{module_name}' enabled. Please restart the server for changes to take effect."}
     )
 
 @app.post("/modules/{module_name}/disable")
-async def disable_module_endpoint(module_name: str):
+async def disable_module_endpoint(module_name: str, db: Session = Depends(get_db)):
     """
-    Marks a module as disabled. Requires server restart to take effect.
+    Marks a module as disabled in the database. Requires server restart to take effect.
     """
-    if module_name not in loaded_modules:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found.")
+    module_record = db.query(ModuleRecord).filter(ModuleRecord.name == module_name).first() # CHECK DB
+    if not module_record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found in database.")
 
-    if not loaded_modules[module_name]["enabled"]:
+    if not module_record.is_enabled:
         return JSONResponse(content={"message": f"Module '{module_name}' is already disabled."})
 
-    
-    loaded_modules[module_name]["enabled"] = False
-    opentz_logger.info(f"Module '{module_name}' marked as disabled. Please restart the API server to deactivate.")
+    module_record.is_enabled = False
+    db.commit()
+    db.refresh(module_record)
+    opentz_logger.info(f"Module '{module_name}' marked as disabled in DB. Please restart the API server to deactivate.")
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"message": f"Module '{module_name}' disabled. Please restart the server for changes to take effect."}
     )
 
 @app.delete("/modules/{module_name}/uninstall")
-async def uninstall_module_endpoint(module_name: str):
+async def uninstall_module_endpoint(module_name: str, db: Session = Depends(get_db)):
     """
-    Uninstalls a module by removing its code and re-resolving dependencies.
-    Requires server restart to take full effect.
+    Uninstalls a module by removing its code from disk and its record from the database.
+    Re-resolves dependencies. Requires server restart to take full effect.
     """
-    if module_name not in loaded_modules:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found.")
+
+    if not db:
+        opentz_logger.error("Database session not available for uninstall operation.")
+
+    module_record = db.query(ModuleRecord).filter(ModuleRecord.name == module_name).first()
+    if not module_record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found in database.")
 
     module_path = os.path.join(MODULES_INSTALLED_DIR, module_name)
-    if not os.path.exists(module_path):
-        del loaded_modules[module_name]
-        opentz_logger.warning(f"Module directory for '{module_name}' was missing, but module was in loaded state. Cleaned up state.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Module directory already missing. State cleaned up.")
-
+    
     try:
-        shutil.rmtree(module_path)
-        del loaded_modules[module_name]
+        if os.path.exists(module_path):
+            shutil.rmtree(module_path)
+            opentz_logger.info(f"Module code directory for '{module_name}' removed from disk.")
+        else:
+            opentz_logger.warning(f"Module code directory for '{module_name}' not found on disk, but record exists in DB. Proceeding with DB record deletion.")
 
-        _re_resolve_dependencies()
+        db.delete(module_record)
+        db.commit()
+        opentz_logger.info(f"Module '{module_name}' record deleted from database.")
 
-        opentz_logger.info(f"Module '{module_name}' uninstalled. Python environment updated. Please restart the API server to apply changes.")
+        await _re_resolve_dependencies()
+
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={"message": f"Module '{module_name}' uninstalled. Python environment updated. Please restart the API server to apply changes."}
         )
 
     except HTTPException as e:
+        db.rollback()
         raise e
     except Exception as e:
+        db.rollback()
         opentz_logger.exception(f"Error during module uninstall of '{module_name}'.")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -146,3 +146,9 @@ dmypy.json
 
 # profiling data
 .prof
+
+.modules_installed/
+.modules_upload/
+*.optimized
+*.db
+plugins/

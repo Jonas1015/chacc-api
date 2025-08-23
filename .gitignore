@@ -27,7 +27,7 @@ build/
 develop-eggs/
 dist/
 downloads/
-eggs/
+eggs/ 
 .eggs/
 lib/
 lib64/
@@ -149,6 +149,6 @@ dmypy.json
 
 .modules_installed/
 .modules_upload/
-*.optimized
+*.otz
 *.db
 plugins/

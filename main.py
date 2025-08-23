@@ -176,6 +176,11 @@ def install_module_from_otz(otz_filepath: str, db: Session):
         opentz_logger.info(f"Module '{module_name}' extracted to {module_target_path}")
 
         module_record = db.query(ModuleRecord).filter(ModuleRecord.name == module_name).first()
+        
+        existing_module_with_prefix = db.query(ModuleRecord).filter(ModuleRecord.base_path_prefix == module_meta.get("base_path_prefix"), ModuleRecord.name != module_name).first()
+        if existing_module_with_prefix:
+            raise ValueError(f"Base path prefix '{module_meta.get('base_path_prefix')}' is already in use by another module '{existing_module_with_prefix.name}'. Please choose a unique prefix.")
+        
         if not module_record:
             module_record = ModuleRecord(name=module_name)
             db.add(module_record)

@@ -42,7 +42,7 @@ class ModuleRecord(OpenTzBaseModel):
     author = Column(String, nullable=True)
     description = Column(String, nullable=True)
     is_enabled = Column(Boolean, default=True, nullable=False)
-    base_path_prefix = Column(String, nullable=True)
+    base_path_prefix = Column(String, unique=True, nullable=True)
     meta_data = Column(JSON, nullable=True)
 
 async def get_db():

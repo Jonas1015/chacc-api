@@ -95,7 +95,7 @@ def get_plugin_info():
             "version": "0.1.0",
             "author": "Your Name/Organization",
             "description": f"A new Open-TZ module providing {module_name.replace('_', ' ')} functionality.",
-            "entry_point": "module.main:setup_plugin",
+            "entry_point": "main:setup_plugin",
             "base_path_prefix": f"/{module_name.replace('_', '-')}",
             "dependencies_file": "requirements.txt",
             "required_open_tz_version": ">=1.0.0",

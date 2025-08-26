@@ -1,16 +1,28 @@
-# src/database.py
-
 from sqlalchemy import JSON, Boolean, Column, Integer, String, create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from sqlalchemy.ext.declarative import as_declarative, declared_attr
 from decouple import config
 
-DATABASE_URL = config("DATABASE_URL", default="sqlite:///./opentz.db")
+from src.logger import LogLevels, configure_logging
 
-if DATABASE_URL.startswith("sqlite"):
-    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-else:
+
+DATABASE_ENGINE=config("DATABASE_ENGINE", default="sqlite", cast=str)
+DATABASE_NAME=config("DATABASE_NAME", default="opentzdb")
+DATABASE_USER=config("DATABASE_USER", default="opentz")
+DATABASE_PASSWORD=config("DATABASE_PASSWORD", default="welcome2opentz")
+DATABASE_HOST = config("localhost", default="localhost")
+DATABASE_PORT=config("DATABASE_PORT", default="5432", cast=int)
+
+engine = None
+
+if DATABASE_ENGINE == "sqlite" or DATABASE_ENGINE == "default":
+    engine = create_engine("sqlite:///./opentz.db", connect_args={"check_same_thread": False})
+
+elif DATABASE_ENGINE == "postgresql":
+    DATABASE_URL = f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
     engine = create_engine(DATABASE_URL)
+else:
+    raise ValueError(f"Unsupported DATABASE_ENGINE: {DATABASE_ENGINE}. Supported engines are 'sqlite' and 'postgresql'.")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

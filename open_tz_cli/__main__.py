@@ -6,7 +6,7 @@ import zipfile
 
 from src.logger import configure_logging, LogLevels
 
-cli_logger = configure_logging(log_level=LogLevels.info)
+cli_logger = configure_logging(log_level=LogLevels.INFO)
 
 def create_module_scaffold(module_name: str, output_dir: str):
     """

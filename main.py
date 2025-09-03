@@ -1,4 +1,5 @@
 # main.py
+import io
 import os
 import importlib.util
 import sys
@@ -24,9 +25,11 @@ from src.database import get_db, OpenTzBaseModel, engine, ModuleRecord
 
 MODULES_INSTALLED_DIR = ".modules_installed"
 MODULES_UPLOAD_DIR = ".modules_upload"
+MODULES_LOADED_DIR = ".modules_loaded"
 
 os.makedirs(MODULES_INSTALLED_DIR, exist_ok=True)
 os.makedirs(MODULES_UPLOAD_DIR, exist_ok=True)
+os.makedirs(MODULES_LOADED_DIR, exist_ok=True)
 
 opentz_logger = configure_logging(log_level=LogLevels.info)
 
@@ -237,17 +240,24 @@ async def load_modules():
         logger=opentz_logger,
         db_session_factory=get_db
     )
+
+    if MODULES_LOADED_DIR not in sys.path:
+        sys.path.append(MODULES_LOADED_DIR)
     
     db = await anext(get_db())
     try:
-        all_module_records = db.query(ModuleRecord).all()
+        installed_modules = db.query(ModuleRecord).all()
 
-        for record in all_module_records:
+        for record in installed_modules:
             module_name = record.name
             module_path = os.path.join(MODULES_INSTALLED_DIR, module_name)
 
             if not os.path.isdir(module_path):
-                opentz_logger.warning(f"Module '{module_name}' found in DB but directory '{module_path}' is missing. Skipping load.")
+                opentz_logger.warning(f"Module '{module_name}' found in DB but directory '{module_path}' is missing. Removing record from the database.")
+                record_to_delete = db.query(ModuleRecord).filter_by(name=module_name).first()
+                if record_to_delete:
+                    db.delete(record_to_delete)
+                    db.commit()
                 continue
 
             try:
@@ -346,42 +356,90 @@ async def get_core_data(request: Request):
 @app.post("/modules/")
 async def install_otz_module_endpoint(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
-    Uploads and installs an .otz module package.
-    Requires server restart to activate/deactivate changes.
+    Installs a new Open-TZ module from an .otz package.
+    The module is identified by the `name` field in its `module_meta.json`.
+    If a module with the same name exists, it will be overwritten.
+    Requires server restart to activate/deactivate the new module.
     """
     if not file.filename.endswith(".otz"):
+        opentz_logger.error(f"Uploaded file '{file.filename}' is not a .otz package.")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only .otz module packages are allowed."
         )
 
     otz_filepath = os.path.join(MODULES_UPLOAD_DIR, file.filename)
+
     try:
-        with open(otz_filepath, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        module_meta = install_module_from_otz(otz_filepath, db)
-        module_name = module_meta.get("name")
+        file_content = await file.read()
+            
+        with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
+            try:
+                with zip_ref.open('module_meta.json') as meta_file:
+                    meta_data = json.load(meta_file)
+            except KeyError:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing 'module_meta.json' in the .otz package.")
+            
+            module_name = meta_data.get("name")
+            if not module_name:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'name' field is missing in 'module_meta.json'.")
 
-        _re_resolve_dependencies()
+            target_otz_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.otz")
+            with open(target_otz_path, "wb") as f:
+                f.write(file_content)
+                
+            opentz_logger.info(f"Module archive '{module_name}.otz' saved to '{target_otz_path}'.")
 
-        opentz_logger.info(f"Module '{module_name}' installed. Please restart the API server to activate.")
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"message": f"Module '{module_name}' installed successfully. Python environment updated. Please restart the API server to activate."}
-        )
+            loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
+            if os.path.exists(loaded_module_dir):
+                opentz_logger.info(f"Removing old unzipped version from '{loaded_module_dir}'.")
+                shutil.rmtree(loaded_module_dir)
+            
+            os.makedirs(loaded_module_dir, exist_ok=True)
+            zip_ref.extractall(loaded_module_dir)
+            opentz_logger.info(f"Module '{module_name}' successfully unzipped to '{loaded_module_dir}'.")
 
-    except HTTPException as e:
-        raise e
+            record = db.query(ModuleRecord).filter_by(name=module_name).first()
+            if record:
+                record.display_name = meta_data.get("display_name", record.display_name)
+                record.version = meta_data.get("version", record.version)
+                record.author = meta_data.get("author", record.author)
+                record.description = meta_data.get("description", record.description)
+                record.base_path_prefix = meta_data.get("base_path_prefix", record.base_path_prefix)
+                record.meta_data = meta_data
+                record.is_enabled = True # Automatically enable on install/update
+                db.commit()
+                db.refresh(record)
+                opentz_logger.info(f"Database record for '{module_name}' updated.")
+            else:
+                new_record = ModuleRecord(
+                    name=module_name,
+                    display_name=meta_data.get("display_name"),
+                    version=meta_data.get("version"),
+                    author=meta_data.get("author"),
+                    description=meta_data.get("description"),
+                    is_enabled=True,
+                    base_path_prefix=meta_data.get("base_path_prefix"),
+                    meta_data=meta_data
+                )
+                db.add(new_record)
+                db.commit()
+                db.refresh(new_record)
+                opentz_logger.info(f"New database record for '{module_name}' created.")
+    except HTTPException:
+        raise
     except Exception as e:
-        opentz_logger.exception(f"Error during .otz module installation via API.")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to install .otz module: {e}"
-        )
-    finally:
-        if os.path.exists(otz_filepath):
-            os.remove(otz_filepath)
+        opentz_logger.error(f"Error during module installation: {e}", exc_info=True)
+        if 'loaded_module_dir' in locals() and os.path.exists(loaded_module_dir):
+            shutil.rmtree(loaded_module_dir)
+        if 'target_otz_path' in locals() and os.path.exists(target_otz_path):
+            os.remove(target_otz_path)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Installation failed: {e}")
+    
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"message": f"Module '{module_name}' installed/updated successfully. Restart the application to apply changes."}
+    )
 
 
 @app.get("/modules/")
@@ -461,12 +519,18 @@ async def uninstall_module_endpoint(module_name: str, db: Session = Depends(get_
     if not module_record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found in database.")
 
-    module_path = os.path.join(MODULES_INSTALLED_DIR, module_name)
-    
     try:
-        if os.path.exists(module_path):
-            shutil.rmtree(module_path)
-            opentz_logger.info(f"Module code directory for '{module_name}' removed from disk.")
+        archive_file_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.otz")
+        if os.path.exists(archive_file_path):
+            os.remove(archive_file_path)
+            opentz_logger.info(f"Successfully deleted module archive: {archive_file_path}")
+        else:
+            opentz_logger.warning(f"Module code directory for '{module_name}' not found on modules archive.")
+
+        loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
+        if os.path.exists(loaded_module_dir):
+            shutil.rmtree(loaded_module_dir)
+            opentz_logger.info(f"Successfully deleted module directory: {loaded_module_dir}")
         else:
             opentz_logger.warning(f"Module code directory for '{module_name}' not found on disk, but record exists in DB. Proceeding with DB record deletion.")
 

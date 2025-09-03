@@ -148,7 +148,11 @@ dmypy.json
 .prof
 
 .modules_installed/
+modules_installed/
 .modules_upload/
+modules
+modules_loaded
+.modules_loaded
 *.otz
 *.db
 plugins/

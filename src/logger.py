@@ -2,14 +2,7 @@ import logging
 from enum import StrEnum
 import colorlog
 
-from src.constants import LOGGER_NAME
-
-# The format strings are modified to wrap only `%(levelname)s` with color tags.
-# This ensures that only the level name is colored, and the rest remains in the
-# default terminal color.
-
-LOG_FORMAT_DEFAULT = "%(log_color)s%(levelname)s%(reset)s:     %(asctime)s - %(name)s - %(message)s"
-LOG_FORMAT_DEBUG = "%(log_color)s%(levelname)s%(reset)s %(asctime)s:%(message)s:%(pathname)s:%(funcName)s:%(lineno)d"
+from src.constants import LOGGER_NAME, LOG_FORMAT_DEFAULT, LOG_FORMAT_DEBUG
 
 class LogLevels(StrEnum):
     INFO = "INFO"

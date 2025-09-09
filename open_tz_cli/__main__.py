@@ -100,7 +100,7 @@ def get_plugin_info():
             "dependencies_file": "requirements.txt",
             "required_open_tz_version": ">=1.0.0",
             "license": "MIT",
-            "tags": ["utility", "new-module"],
+            "tags": [],
             "homepage": f"https://github.com/your-org/{module_name}"
         }
         with open(os.path.join(module_root_dir, "module_meta.json"), "w") as f:

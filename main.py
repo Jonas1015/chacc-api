@@ -3,11 +3,12 @@ from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
 from src.rate_limiter import limiter, rate_limit_exceeded_handler
-from src.modules import load_modules
+from src.modules import load_modules, modules_router
 from src.database import OpenTzBaseModel, engine
 from src.logger import configure_logging, LogLevels
 
-opentz_logger = configure_logging(log_level=LogLevels.info)
+# --- Initialization ---
+opentz_logger = configure_logging(log_level=LogLevels.INFO)
 
 @asynccontextmanager
 async def onStartupLifespan(app: FastAPI):
@@ -47,3 +48,5 @@ async def read_root():
     Root endpoint of the Open-TZ API backbone.
     """
     return {"message": "Welcome to the Open-TZ API Backbone! Check /docs for API modules."}
+
+app.include_router(modules_router, tags=["Module Management"])

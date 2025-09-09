@@ -11,11 +11,11 @@ from fastapi import Depends, Request, status, UploadFile, File, HTTPException, A
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from .constants import MODULES_INSTALLED_DIR, MODULES_LOADED_DIR, MODULES_UPLOAD_DIR, BACKBONE_REQUIREMENTS_LOCK_FILE
+from .constants import LOGGER_NAME, MODULES_INSTALLED_DIR, MODULES_LOADED_DIR, MODULES_UPLOAD_DIR, BACKBONE_REQUIREMENTS_LOCK_FILE
 from .database import get_db, ModuleRecord
 from .core_services import BackboneContext
 
-opentz_logger = logging.getLogger("open-tz-backbone")
+opentz_logger = logging.getLogger(LOGGER_NAME)
 
 async def _re_resolve_dependencies():
     """
@@ -199,7 +199,7 @@ async def load_modules(app: FastAPI):
                     continue
 
                 module_relative_path, func_name = entry_point_str.split(":")
-                plugin_code_dir = os.path.join(module_path)
+                plugin_code_dir = os.path.join(module_path, "module")
                 plugin_main_file_path = os.path.join(plugin_code_dir, *module_relative_path.split('.')) + ".py"
 
                 if not os.path.exists(plugin_main_file_path):
@@ -232,7 +232,8 @@ async def load_modules(app: FastAPI):
                 plugin_router = setup_func(backbone_context)
 
                 if plugin_router and isinstance(plugin_router, APIRouter):
-                    app.include_router(plugin_router, prefix=record.base_path_prefix, tags=module_meta.get("tags", [record.name]))
+                    opentz_logger.info(f"Mounting router for module '{module_name}' at prefix: {record.base_path_prefix}")
+                    app.include_router(plugin_router, prefix=record.base_path_prefix, tags=module_meta.get("tags", [record.display_name]))
                     opentz_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
                 else:
                     opentz_logger.warning(f"Plugin '{module_name}': Setup function did not return an APIRouter.")

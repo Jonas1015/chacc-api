@@ -4,6 +4,7 @@ MODULES_INSTALLED_DIR = "modules_installed"
 MODULES_LOADED_DIR = ".modules_loaded"
 MODULES_UPLOAD_DIR = ".modules_upload"
 BACKBONE_REQUIREMENTS_LOCK_FILE = f"{MODULES_LOADED_DIR}/compiled_requirements.lock"
+LOGGER_NAME = "open-tz-backbone"
 
 os.makedirs(MODULES_INSTALLED_DIR, exist_ok=True)
 os.makedirs(MODULES_LOADED_DIR, exist_ok=True)

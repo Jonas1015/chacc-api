@@ -10,3 +10,4 @@ passlib
 bcrypt
 python-multipart
 email-validator
+colorlog

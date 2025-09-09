@@ -22,12 +22,10 @@ def configure_logging(log_level: str = LogLevels.INFO) -> logging.Logger:
     if log_level_upper not in valid_levels:
         log_level_upper = LogLevels.INFO.value
 
-    # Clear existing handlers to prevent duplicate output
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
         handler.close()
 
-    # Define the color scheme for each log level
     log_colors = {
         'DEBUG': 'cyan',
         'INFO': 'green',
@@ -35,18 +33,13 @@ def configure_logging(log_level: str = LogLevels.INFO) -> logging.Logger:
         'ERROR': 'red',
         'CRITICAL': 'bold_red',
     }
-
-    # Use the appropriate format string based on the log level
     log_format = LOG_FORMAT_DEBUG if log_level_upper == LogLevels.DEBUG.value else LOG_FORMAT_DEFAULT
     
-    # Create the colored formatter
     formatter = colorlog.ColoredFormatter(log_format, log_colors=log_colors)
     
-    # Create a stream handler and set the colored formatter
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
     
-    # Set the root logger's level and add the handler
     logging.root.setLevel(log_level_upper)
     logging.root.addHandler(stream_handler)
 

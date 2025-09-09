@@ -20,9 +20,8 @@ def configure_logging(log_level: str = LogLevels.info) -> logging.Logger:
     valid_levels = [level.value for level in LogLevels]
 
     if log_level_upper not in valid_levels:
-        log_level_upper = LogLevels.info.value # Default to INFO if invalid level provided
+        log_level_upper = LogLevels.info.value
 
-    # Reset any existing handlers to prevent duplicate logs if called multiple times
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
         handler.close()

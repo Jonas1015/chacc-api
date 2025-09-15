@@ -2,6 +2,7 @@ import logging
 from fastapi import FastAPI
 from slowapi import Limiter
 from sqlalchemy.orm import Session
+from typing import Callable, Any, Dict
 
 class BackboneContext:
     """
@@ -12,10 +13,8 @@ class BackboneContext:
         self._app = app
         self._limiter = limiter
         self._logger = logger
-        
-        # TODO: Uncomment and implement database session factory or config object
         self._db_session_factory = db_session_factory
-        # self._config = config_object
+        self._services: Dict[str, Callable[..., Any]] = {}
 
     @property
     def app(self) -> FastAPI:
@@ -40,11 +39,21 @@ class BackboneContext:
         """
         return self._db_session_factory
 
-    # Example: A method to get a global configuration setting (if you add a config object to BackboneContext)
-    # def get_global_setting(self, key: str, default=None):
-    #     """Access a global setting from the backbone."""
-    #     if hasattr(self, '_config') and self._config:
-    #         return getattr(self._config, key, default)
-    #     self._logger.warning(f"Attempted to get global setting '{key}' but no config object provided to BackboneContext.")
-    #     return default
+    def register_service(self, name: str, service: Callable[..., Any]):
+        """
+        Allows a module to register a named service (function or class) to be used by other modules.
+        """
+        if name in self._services:
+            self._logger.warning(f"Service '{name}' is being overridden by a new registration.")
+        self._logger.info(f"Service '{name}' has been registered.")
+        self._services[name] = service
+
+    def get_service(self, name: str) -> Callable[..., Any]:
+        """
+        Retrieves a registered service by its name.
+        """
+        service = self._services.get(name)
+        if not service:
+            self._logger.warning(f"Service '{name}' not found. Returning None.")
+        return service
 

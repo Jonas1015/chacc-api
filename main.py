@@ -4,10 +4,10 @@ from fastapi.concurrency import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
 from src.rate_limiter import limiter, rate_limit_exceeded_handler
 from src.modules import load_modules, modules_router
-from src.database import OpenTzBaseModel, engine
+from src.database import ModuleRecord, initialize_database_models, get_db, run_automatic_migration
 from src.logger import configure_logging, LogLevels
+from src.core_services import BackboneContext
 
-# --- Initialization ---
 opentz_logger = configure_logging(log_level=LogLevels.INFO)
 
 @asynccontextmanager
@@ -17,11 +17,33 @@ async def onStartupLifespan(app: FastAPI):
     """
     opentz_logger.info("Application startup initiated...")
     
-    OpenTzBaseModel.metadata.create_all(bind=engine)
-    opentz_logger.info("Database tables ensured for core models and ModuleRecord.")
+    backbone_context = BackboneContext(
+        app=app,
+        limiter=app.state.limiter,
+        logger=opentz_logger,
+        db_session_factory=get_db
+    )
+
+    initialize_database_models(backbone_context)
     
-    await load_modules(app)
-    opentz_logger.info("All modules loaded and ready to serve requests.")
+    session = await anext(get_db())
+    modules_table_exists = False
+    try:
+        session.query(ModuleRecord).first()
+        modules_table_exists = True
+        opentz_logger.info("Modules table exists. Proceeding with regular startup sequence.")
+    except Exception as e:
+        opentz_logger.warning("Modules table does not exist. Running initial migration.")
+        pass
+
+    if not modules_table_exists:
+        await run_automatic_migration()
+
+    await load_modules(app, backbone_context)
+    
+    await run_automatic_migration()
+    
+    opentz_logger.info("Application startup complete.")
     
     yield
     

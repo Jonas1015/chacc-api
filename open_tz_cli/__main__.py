@@ -29,16 +29,28 @@ def create_module_scaffold(module_name: str, output_dir: str):
 
         main_py_content = f"""
 from fastapi import APIRouter, Request, Depends, HTTPException, status
-from src.core_services import BackboneContext # Import backbone context
-from sqlalchemy.orm import Session # For type hinting database sessions
-from sqlalchemy import Column, Integer, String # For defining SQLAlchemy models (if needed)
-# from src.database import Base # Uncomment if this module defines its own DB models
+from src.core_services import BackboneContext
+from src import OpenTzBaseModel, register_model
+from sqlalchemy.orm import Session
+from sqlalchemy import Column, Integer, String
 
 router = APIRouter(
-    tags = ["{module_name.replace('_', ' ').title()} Module"],
+    tags=["{module_name.replace('_', ' ').title()} Module"],
 )
 _module_context: BackboneContext = None
 
+# --- Models ---
+# Decorate your models with @register_model to have them automatically included
+# in the database schema management. They should inherit from OpenTzBaseModel
+# to get UUID and audit fields (if the authentication module is active).
+
+# @register_model
+# class YourModel(OpenTzBaseModel):
+#     __tablename__ = "{module_name}_items"
+#     name = Column(String, index=True)
+
+
+# --- Module Setup ---
 def setup_plugin(context: BackboneContext):
     \"\"\"
     This function is called by the Open-TZ backbone to initialize your module.
@@ -46,30 +58,22 @@ def setup_plugin(context: BackboneContext):
     \"\"\"
     global _module_context
     _module_context = context
-
+    
     _module_context.logger.info("{module_name}: Setup initiated!")
 
-    # Example endpoint using backbone's logger and limiter
+    # --- Endpoints ---
     @router.get("/hello")
     @_module_context.limiter.limit("5/minute")
     async def hello_world(request: Request):
         _module_context.logger.info(f"Hello endpoint hit in {module_name}.")
         return {{"message": "Hello from {module_name}!"}}
 
-    # Example endpoint using database access (uncomment if you define models and use DB)
-    # @router.post("/items/", status_code=status.HTTP_201_CREATED)
-    # async def create_item(name: str, db: Session = Depends(_module_context.get_db)):
-    #     # Your module's item model (e.g., in module/models.py or here)
-    #     # class MyModuleItem(Base):
-    #     #     __tablename__ = "my_module_items"
-    #     #     id = Column(Integer, primary_key=True, index=True)
-    #     #     name = Column(String, index=True)
-    #     # db_item = MyModuleItem(name=name)
-    #     # db.add(db_item)
-    #     # db.commit()
-    #     # db.refresh(db_item)
-    #     _module_context.logger.info(f"Item '{{name}}' created via {module_name} module.")
-    #     return {{"message": f"Item '{{name}}' created successfully by {module_name}."}}
+    # Example of a secured endpoint that requires authentication
+    # get_current_user = _module_context.get_service("get_current_user")
+    # if get_current_user:
+    #     @router.get("/protected")
+    #     async def protected_route(current_user: dict = Depends(get_current_user)):
+    #         return {{"message": f"Hello, {{current_user['username']}}! You are accessing a protected route."}}
 
     return router
 

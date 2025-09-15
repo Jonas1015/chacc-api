@@ -11,11 +11,13 @@ from fastapi import Depends, Request, status, UploadFile, File, HTTPException, A
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from src.logger import LogLevels, configure_logging
+
 from .constants import LOGGER_NAME, MODULES_INSTALLED_DIR, MODULES_LOADED_DIR, MODULES_UPLOAD_DIR, BACKBONE_REQUIREMENTS_LOCK_FILE
 from .database import get_db, ModuleRecord
 from .core_services import BackboneContext
 
-opentz_logger = logging.getLogger(LOGGER_NAME)
+opentz_logger = configure_logging(log_level=LogLevels.INFO)
 
 async def _re_resolve_dependencies():
     """
@@ -75,7 +77,29 @@ async def _re_resolve_dependencies():
         opentz_logger.info("Dependency re-resolution process finished.")
 
 
-async def load_modules(app: FastAPI):
+def _discover_and_import_models(directory: str, base_module_path: str, logger: logging.Logger):
+    """
+    Recursively scans a directory for Python files and imports them.
+    This is for automatic model discovery.
+    """
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith('.py') and file != '__init__.py':
+                file_path = os.path.join(root, file)
+                relative_path = os.path.relpath(file_path, directory)
+                module_name = f"{base_module_path}.{relative_path[:-3].replace(os.sep, '.')}"
+
+                try:
+                    spec = importlib.util.spec_from_file_location(module_name, file_path)
+                    module = importlib.util.module_from_spec(spec)
+                    sys.modules[module_name] = module
+                    spec.loader.exec_module(module)
+                    opentz_logger.info(f"Dynamically imported models from: {module_name}")
+                except Exception as e:
+                    opentz_logger.error(f"Failed to import models from {file_path}: {e}", exc_info=True)
+
+
+async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_modules: list = None, exclude_modules: list = None):
     """
     Discovers modules from the MODULES_INSTALLED_DIR, synchronizes the database,
     and then loads enabled modules into the application.
@@ -175,7 +199,17 @@ async def load_modules(app: FastAPI):
         
         opentz_logger.info("Database synchronized with filesystem. Proceeding to load modules...")
         
-        updated_records = db.query(ModuleRecord).filter_by(is_enabled=True).all()
+        query = db.query(ModuleRecord).filter_by(is_enabled=True)
+        if only_modules:
+            query = query.filter(ModuleRecord.name.in_(only_modules))
+        if exclude_modules:
+            opentz_logger.info(f"Excluding modules from loading: {exclude_modules}")
+            if "authentication" in exclude_modules:
+                opentz_logger.warning("Skipping authentication module during initial module load.")
+            query = query.filter(ModuleRecord.name.notin_(exclude_modules))
+        
+        updated_records = query.all()
+
         for record in updated_records:
             module_name = record.name
             module_path = os.path.join(MODULES_LOADED_DIR, module_name)
@@ -191,6 +225,11 @@ async def load_modules(app: FastAPI):
                 continue
             
             try:
+                models_directory = os.path.join(module_path, "module")
+                if os.path.isdir(models_directory):
+                    sys.path.insert(0, models_directory)
+                    _discover_and_import_models(models_directory, f"modules.{module_name}.module", backbone_context.logger)
+
                 module_meta = record.meta_data if record.meta_data else {}
                 entry_point_str = module_meta.get("entry_point")
                 
@@ -223,12 +262,7 @@ async def load_modules(app: FastAPI):
                     opentz_logger.warning(f"Plugin '{module_name}': Entry point function '{func_name}' not found or not callable after import.")
                     continue
 
-                backbone_context = BackboneContext(
-                    app=app,
-                    limiter=app.state.limiter,
-                    logger=opentz_logger,
-                    db_session_factory=get_db
-                )
+                
                 plugin_router = setup_func(backbone_context)
 
                 if plugin_router and isinstance(plugin_router, APIRouter):

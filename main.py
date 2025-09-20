@@ -8,19 +8,19 @@ from src.database import ModuleRecord, initialize_database_models, get_db, run_a
 from src.logger import configure_logging, LogLevels
 from src.core_services import BackboneContext
 
-opentz_logger = configure_logging(log_level=LogLevels.INFO)
+adcore_logger = configure_logging(log_level=LogLevels.INFO)
 
 @asynccontextmanager
 async def onStartupLifespan(app: FastAPI):
     """
     FastAPI lifespan context manager for startup and shutdown events.
     """
-    opentz_logger.info("Application startup initiated...")
+    adcore_logger.info("Application startup initiated...")
     
     backbone_context = BackboneContext(
         app=app,
         limiter=app.state.limiter,
-        logger=opentz_logger,
+        logger=adcore_logger,
         db_session_factory=get_db
     )
 
@@ -31,9 +31,9 @@ async def onStartupLifespan(app: FastAPI):
     try:
         session.query(ModuleRecord).first()
         modules_table_exists = True
-        opentz_logger.info("Modules table exists. Proceeding with regular startup sequence.")
+        adcore_logger.info("Modules table exists. Proceeding with regular startup sequence.")
     except Exception as e:
-        opentz_logger.warning("Modules table does not exist. Running initial migration.")
+        adcore_logger.warning("Modules table does not exist. Running initial migration.")
         pass
 
     if not modules_table_exists:
@@ -43,14 +43,14 @@ async def onStartupLifespan(app: FastAPI):
     
     await run_automatic_migration()
     
-    opentz_logger.info("Application startup complete.")
+    adcore_logger.info("Application startup complete.")
     
     yield
     
-    opentz_logger.info("Application shutting down.")
+    adcore_logger.info("Application shutting down.")
     
 app = FastAPI(
-    title="Open-TZ API Backbone",
+    title="AdCore API Backbone",
     description="A modular FastAPI application for extensible APIs.",
     version="1.0.0",
     docs_url="/docs",
@@ -67,8 +67,8 @@ app.state.mounted_routers = {}
 @app.get("/")
 async def read_root():
     """
-    Root endpoint of the Open-TZ API backbone.
+    Root endpoint of the AdCore API backbone.
     """
-    return {"message": "Welcome to the Open-TZ API Backbone! Check /docs for API modules."}
+    return {"message": "Welcome to the AdCore API Backbone! Check /docs for API modules."}
 
 app.include_router(modules_router, tags=["Module Management"])

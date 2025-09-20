@@ -1,14 +1,14 @@
-# OPEN TZ 
+# AdCore API 
 
 This is a python open source API engine created using Fast API. It was first created in August 2025.
 
 
-## Building with Open TZ Platform
-If as a developer you want to start development with Open-Tz Platform, here are things to consider:
+## Building with AdCore API Platform
+If as a developer you want to start development with AdCore API Platform, here are things to consider:
 
 Clone project from the repository:
 ```
-git clone github.com/jonas1015/open-tz
+git clone github.com/jonas1015/adcore-api
 ```
 
 create virtual environment:
@@ -32,7 +32,7 @@ then install dependencies:
 pip3 install -r requirements-dev.txt
 ```
 
-Running a Open TZ web server 
+Running a AdCore API web server 
 ```
 uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 ```
@@ -51,31 +51,31 @@ As a module developer, you do not need to create or run manual migration scripts
 
 Here is an example:
 ```python
-from src.database import OpenTzBaseModel, register_model
+from src.database import AdCoreBaseModel, register_model
 
 @register_model
-class MyNewModel(OpenTzBaseModel):
+class MyNewModel(AdCoreBaseModel):
     # ... your columns here
 ```
 
-By adding this decorator, you are telling the Open-TZ platform to include your model in its schema management. When the application restarts, it will automatically add or update the table for `MyNewModel` in the database.
+By adding this decorator, you are telling the AdCore API platform to include your model in its schema management. When the application restarts, it will automatically add or update the table for `MyNewModel` in the database.
 
 **Warning:**
 
 This is a powerful feature that directly modifies the database based on the loaded code. The user deploying a module is fully responsible for any data loss that may occur as a result of model changes. The platform provides the capability, but the responsibility for the data lies with the user.
 
-### Creating modules with Open TZ Command Line Tool (open_tz_cli)
+### Creating modules with AdCore API Command Line Tool (adcore_cli)
 
-To create a new module with Open Tz Command Line Tool you will need to run this command inside the project root folder:
+To create a new module with AdCore Command Line Tool you will need to run this command inside the project root folder:
 ```
-python3 -m open_tz_cli create module_name
+python3 -m adcore_cli create module_name
 ```
 
 This will be created inside `plugins/{module_name}` inside the project root folder
 
 To build this module run:
 ```
-python3 -m open_tz_cli build path/to/module_name
+python3 -m adcore_cli build path/to/module_name
 ```
 
 for the case of default path it should be `plugins/{module_name}`
@@ -84,7 +84,7 @@ Then deploy this module in POST `/module` API
 
 ### Dependency Management
 
-The Open-TZ platform uses a centralized dependency management system to ensure a stable and consistent environment. When a module is installed, enabled, or disabled, the platform re-resolves all dependencies from the backbone and every enabled module to create a single, unified `compiled_requirements.lock` file. This file is then used to install all necessary packages into the environment.
+The AdCore API platform uses a centralized dependency management system to ensure a stable and consistent environment. When a module is installed, enabled, or disabled, the platform re-resolves all dependencies from the backbone and every enabled module to create a single, unified `compiled_requirements.lock` file. This file is then used to install all necessary packages into the environment.
 
 **How it Works:**
 
@@ -96,7 +96,7 @@ The Open-TZ platform uses a centralized dependency management system to ensure a
 
 *   **Specify Dependencies:** Always declare your module's dependencies in its `requirements.txt` file.
 *   **Be Flexible with Versions:** Whenever possible, avoid pinning exact dependency versions (e.g., `requests==2.25.1`). Instead, use flexible version specifiers (e.g., `requests>=2.25.0`) to allow the resolver to find a compatible version that satisfies all modules.
-*   **Test for Conflicts:** Before releasing your module, test it with the Open-TZ backbone to ensure that your dependencies do not conflict with the core dependencies or those of other common modules.
+*   **Test for Conflicts:** Before releasing your module, test it with the AdCore backbone to ensure that your dependencies do not conflict with the core dependencies or those of other common modules.
 
 **Consequences of Version Conflicts:**
 

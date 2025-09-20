@@ -10,7 +10,7 @@ cli_logger = configure_logging(log_level=LogLevels.INFO)
 
 def create_module_scaffold(module_name: str, output_dir: str):
     """
-    Creates the basic folder structure and template files for a new Open-TZ module.
+    Creates the basic folder structure and template files for a new AdCore API module.
     """
     module_root_dir = os.path.join(output_dir, module_name)
     module_code_dir = os.path.join(module_root_dir, "module")
@@ -30,7 +30,7 @@ def create_module_scaffold(module_name: str, output_dir: str):
         main_py_content = f"""
 from fastapi import APIRouter, Request, Depends, HTTPException, status
 from src.core_services import BackboneContext
-from src import OpenTzBaseModel, register_model
+from src import AdCoreBaseModel, register_model
 from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String
 
@@ -41,11 +41,11 @@ _module_context: BackboneContext = None
 
 # --- Models ---
 # Decorate your models with @register_model to have them automatically included
-# in the database schema management. They should inherit from OpenTzBaseModel
+# in the database schema management. They should inherit from AdCoreBaseModel
 # to get UUID and audit fields (if the authentication module is active).
 
 # @register_model
-# class YourModel(OpenTzBaseModel):
+# class YourModel(AdCoreBaseModel):
 #     __tablename__ = "{module_name}_items"
 #     name = Column(String, index=True)
 
@@ -53,7 +53,7 @@ _module_context: BackboneContext = None
 # --- Module Setup ---
 def setup_plugin(context: BackboneContext):
     \"\"\"
-    This function is called by the Open-TZ backbone to initialize your module.
+    This function is called by the AdCore API backbone to initialize your module.
     It receives the BackboneContext, which provides access to shared services.
     \"\"\"
     global _module_context
@@ -79,14 +79,14 @@ def setup_plugin(context: BackboneContext):
 
 def get_plugin_info():
     \"\"\"
-    Provides essential information about this module to the Open-TZ backbone.
+    Provides essential information about this module to the AdCore API backbone.
     \"\"\"
     return {{
         "name": "{module_name}",
         "display_name": "{module_name.replace('_', ' ').title()} Module",
         "version": "0.1.0",
         "author": "Your Name/Organization",
-        "description": "A new Open-TZ module for {module_name.replace('_', ' ')} functionality.",
+        "description": "A new AdCore API module for {module_name.replace('_', ' ')} functionality.",
         "status": "enabled"
     }}
 """
@@ -98,11 +98,11 @@ def get_plugin_info():
             "display_name": f"{module_name.replace('_', ' ').title()} Module",
             "version": "0.1.0",
             "author": "Your Name/Organization",
-            "description": f"A new Open-TZ module providing {module_name.replace('_', ' ')} functionality.",
+            "description": f"A new AdCore module providing {module_name.replace('_', ' ')} functionality.",
             "entry_point": "main:setup_plugin",
             "base_path_prefix": f"/{module_name.replace('_', '-')}",
             "dependencies_file": "requirements.txt",
-            "required_open_tz_version": ">=1.0.0",
+            "required_adcore_version": ">=1.0.0",
             "license": "MIT",
             "tags": [],
             "homepage": f"https://github.com/your-org/{module_name}"
@@ -123,9 +123,9 @@ def get_plugin_info():
         if os.path.exists(module_root_dir):
             shutil.rmtree(module_root_dir)
 
-def build_module_otz(module_source_dir: str, output_filename: str = None):
+def build_module_adcore(module_source_dir: str, output_filename: str = None):
     """
-    Builds an .otz package from a module source directory.
+    Builds an .adcore package from a module source directory.
     """
     if not os.path.isdir(module_source_dir):
         cli_logger.error(f"Error: Source directory '{module_source_dir}' not found.")
@@ -145,11 +145,11 @@ def build_module_otz(module_source_dir: str, output_filename: str = None):
         return
 
     if not output_filename:
-        output_filename = f"{module_name}.otz"
-    elif not output_filename.endswith(".otz"):
-        output_filename += ".otz"
+        output_filename = f"{module_name}.adcore"
+    elif not output_filename.endswith(".adcore"):
+        output_filename += ".adcore"
 
-    temp_zip_content_dir = f"{module_name}_otz_temp"
+    temp_zip_content_dir = f"{module_name}_adcore_temp"
     if os.path.exists(temp_zip_content_dir):
         shutil.rmtree(temp_zip_content_dir)
     os.makedirs(temp_zip_content_dir)
@@ -172,34 +172,34 @@ def build_module_otz(module_source_dir: str, output_filename: str = None):
         cli_logger.info(f"Successfully created {output_filename}")
 
     except Exception as e:
-        cli_logger.error(f"Error creating .otz package: {e}", exc_info=True)
+        cli_logger.error(f"Error creating .adcore package: {e}", exc_info=True)
     finally:
         if os.path.exists(temp_zip_content_dir):
             shutil.rmtree(temp_zip_content_dir)
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="open-tz",
-        description="Open-TZ CLI for module scaffolding and packaging."
+        prog="adcore",
+        description="AdCore API CLI for module scaffolding and packaging."
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    scaffold_parser = subparsers.add_parser("create", help="Create a new Open-TZ module.")
+    scaffold_parser = subparsers.add_parser("create", help="Create a new AdCore API module.")
     scaffold_parser.add_argument("module_name", type=str, help="The name of the module to create (e.g., 'my_awesome_module').")
     scaffold_parser.add_argument("--output-dir", type=str, default="plugins",
                                  help="The directory where the new module will be created. Defaults to 'plugins/'.")
     
-    build_parser = subparsers.add_parser("build", help="Build an Open-TZ module into an .otz package.")
+    build_parser = subparsers.add_parser("build", help="Build an AdCore API module into an .adcore package.")
     build_parser.add_argument("module_source_dir", type=str, help="The path to the module's source directory (e.g., 'plugins/my_awesome_module').")
     build_parser.add_argument("--output-filename", type=str, default=None,
-                              help="Optional: The name of the output .otz file. Defaults to '<module_name>.otz'.")
+                              help="Optional: The name of the output .adcore file. Defaults to '<module_name>.adcore'.")
 
     args = parser.parse_args()
 
     if args.command == "create":
         create_module_scaffold(args.module_name, args.output_dir)
     elif args.command == "build":
-        build_module_otz(args.module_source_dir, args.output_filename)
+        build_module_adcore(args.module_source_dir, args.output_filename)
     else:
         parser.print_help()
 

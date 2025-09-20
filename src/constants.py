@@ -13,7 +13,7 @@ DATABASE_PASSWORD = config("DATABASE_PASSWORD", default="welcome2opentz")
 DATABASE_HOST = config("DATABASE_HOST", default="localhost")
 DATABASE_PORT = config("DATABASE_PORT", default="5432", cast=int)
 
-LOGGER_NAME = "open-tz-backbone"
+LOGGER_NAME = "adcore-api"
 
 # The format strings are modified to wrap only `%(levelname)s` with color tags.
 # This ensures that only the level name is colored, and the rest remains in the

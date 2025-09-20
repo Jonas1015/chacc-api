@@ -18,9 +18,7 @@ import os
 import json
 import hashlib
 import subprocess
-import logging
-from typing import Dict, List, Tuple, Set, Optional
-from pathlib import Path
+from typing import Dict, Set
 
 from src.logger import LogLevels, configure_logging
 
@@ -303,7 +301,7 @@ class DependencyManager:
                     resolved_packages.update(backbone_packages)
 
                 for module_name, module_reqs in modules_needing_resolution:
-                    if module_reqs:  # Only resolve if module has requirements
+                    if module_reqs:
                         module_packages = self.resolve_module_dependencies(module_name, module_reqs)
                         resolved_packages.update(module_packages)
 

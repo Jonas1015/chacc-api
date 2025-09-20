@@ -1,4 +1,3 @@
-import logging
 import subprocess
 import sys
 from fastapi import FastAPI

@@ -6,229 +6,22 @@ import shutil
 import json
 import logging
 import zipfile
-from fastapi import Depends, Request, status, UploadFile, File, HTTPException, APIRouter, FastAPI
+from fastapi import Depends, status, UploadFile, File, HTTPException, APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from src.logger import LogLevels, configure_logging
 
-from .constants import LOGGER_NAME, MODULES_INSTALLED_DIR, MODULES_LOADED_DIR, MODULES_UPLOAD_DIR
+from .constants import MODULES_INSTALLED_DIR, MODULES_LOADED_DIR
 from .database import get_db, ModuleRecord
 from .core_services import BackboneContext
 from .dependency_manager import (
-    invalidate_dependency_cache,
     invalidate_module_cache,
     re_resolve_dependencies
 )
 adcore_logger = configure_logging(log_level=LogLevels.INFO)
 
 
-def _calculate_module_hash(module_name: str, requirements_content: str) -> str:
-    """Calculate hash of a specific module's requirements."""
-    content = f"{module_name}:{requirements_content}"
-    return hashlib.sha256(content.encode()).hexdigest()
-
-
-def _calculate_combined_requirements_hash(module_hashes: dict) -> str:
-    """Calculate hash of all module requirement hashes combined."""
-    sorted_hashes = sorted(module_hashes.items())
-    combined = "|".join(f"{name}:{hash}" for name, hash in sorted_hashes)
-    return hashlib.sha256(combined.encode()).hexdigest()
-
-
-def _load_dependency_cache() -> dict:
-    """Load dependency cache from file."""
-    if os.path.exists(DEPENDENCY_CACHE_FILE):
-        try:
-            with open(DEPENDENCY_CACHE_FILE, 'r') as f:
-                cache = json.load(f)
-                # Ensure new structure exists
-                if 'module_caches' not in cache:
-                    cache['module_caches'] = {}
-                if 'combined_hash' not in cache:
-                    cache['combined_hash'] = None
-                return cache
-        except (json.JSONDecodeError, IOError) as e:
-            adcore_logger.warning(f"Failed to load dependency cache: {e}")
-    return {
-        'module_caches': {},
-        'combined_hash': None,
-        'last_updated': None
-    }
-
-
-def _save_dependency_cache(cache_data: dict):
-    """Save dependency cache to file."""
-    try:
-        os.makedirs(os.path.dirname(DEPENDENCY_CACHE_FILE), exist_ok=True)
-        with open(DEPENDENCY_CACHE_FILE, 'w') as f:
-            json.dump(cache_data, f, indent=2)
-    except IOError as e:
-        adcore_logger.error(f"Failed to save dependency cache: {e}")
-
-
-def _invalidate_dependency_cache():
-    """Invalidate the dependency cache by clearing it."""
-    try:
-        # Instead of deleting, clear the cache to preserve structure
-        cache_data = {
-            'module_caches': {},
-            'backbone_hash': None,
-            'combined_hash': None,
-            'resolved_packages': {},
-            'last_updated': None
-        }
-        _save_dependency_cache(cache_data)
-        adcore_logger.info("Dependency cache invalidated")
-    except Exception as e:
-        adcore_logger.warning(f"Failed to invalidate dependency cache: {e}")
-        # Fallback: try to remove the file
-        if os.path.exists(DEPENDENCY_CACHE_FILE):
-            try:
-                os.remove(DEPENDENCY_CACHE_FILE)
-                adcore_logger.info("Dependency cache file removed")
-            except IOError as e2:
-                adcore_logger.error(f"Failed to remove dependency cache file: {e2}")
-
-
-def _invalidate_module_cache(module_name: str):
-    """Invalidate cache for a specific module."""
-    try:
-        cache = _load_dependency_cache()
-        if module_name in cache.get('module_caches', {}):
-            del cache['module_caches'][module_name]
-            # Clear combined hash to force recalculation
-            cache['combined_hash'] = None
-            _save_dependency_cache(cache)
-            adcore_logger.info(f"Cache invalidated for module: {module_name}")
-    except Exception as e:
-        adcore_logger.warning(f"Failed to invalidate cache for module {module_name}: {e}")
-
-
-def _get_installed_packages() -> set:
-    """Get set of currently installed packages."""
-    try:
-        result = subprocess.run([
-            sys.executable, "-m", "pip", "list", "--format=freeze"
-        ], capture_output=True, text=True, timeout=30)
-
-        if result.returncode == 0:
-            packages = set()
-            for line in result.stdout.strip().split('\n'):
-                if '==' in line:
-                    package_name = line.split('==')[0].lower()
-                    packages.add(package_name)
-            return packages
-        else:
-            adcore_logger.warning(f"Failed to get installed packages: {result.stderr}")
-            return set()
-    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
-        adcore_logger.warning(f"Error getting installed packages: {e}")
-        return set()
-
-
-def _resolve_module_dependencies(module_name: str, requirements_content: str) -> dict:
-    """Resolve dependencies for a specific module."""
-    adcore_logger.info(f"Resolving dependencies for module: {module_name}")
-
-    temp_req_file = os.path.join(MODULES_UPLOAD_DIR, f"temp_{module_name}_requirements.txt")
-
-    try:
-        with open(temp_req_file, "w") as f:
-            f.write(requirements_content)
-
-        # Compile dependencies for this module
-        result = subprocess.run([
-            sys.executable, "-m", "piptools", "compile",
-            "--output-file", f"{temp_req_file}.lock",
-            "--allow-unsafe",
-            temp_req_file
-        ], capture_output=True, text=True)
-
-        if result.returncode != 0:
-            adcore_logger.error(f"Failed to resolve dependencies for {module_name}: {result.stderr}")
-            return {}
-
-        # Parse the lock file
-        resolved_packages = {}
-        lock_file = f"{temp_req_file}.lock"
-        if os.path.exists(lock_file):
-            with open(lock_file, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#') and '==' in line:
-                        parts = line.split('==')
-                        if len(parts) >= 2:
-                            package_name = parts[0]
-                            version = parts[1]
-                            resolved_packages[package_name] = f"=={version}"
-
-        adcore_logger.info(f"Resolved {len(resolved_packages)} packages for {module_name}")
-        return resolved_packages
-
-    except Exception as e:
-        adcore_logger.error(f"Error resolving dependencies for {module_name}: {e}")
-        return {}
-    finally:
-        # Clean up temporary files
-        for file in [temp_req_file, f"{temp_req_file}.lock"]:
-            if os.path.exists(file):
-                os.remove(file)
-
-
-def _merge_resolved_packages(*package_dicts: dict) -> dict:
-    """Merge multiple resolved package dictionaries, resolving conflicts."""
-    merged = {}
-
-    for package_dict in package_dicts:
-        for package_name, version_spec in package_dict.items():
-            if package_name in merged:
-                # If versions conflict, prefer the newer one (simple strategy)
-                existing_version = merged[package_name]
-                if version_spec != existing_version:
-                    adcore_logger.warning(f"Version conflict for {package_name}: {existing_version} vs {version_spec}, using {version_spec}")
-            merged[package_name] = version_spec
-
-    return merged
-
-
-def _install_missing_packages(resolved_packages: dict, installed_packages: set):
-    """Install only packages that are not already installed."""
-    packages_to_install = []
-
-    for package_name, version_spec in resolved_packages.items():
-        package_name_lower = package_name.lower()
-        if package_name_lower not in installed_packages:
-            packages_to_install.append(f"{package_name}{version_spec}")
-        else:
-            adcore_logger.debug(f"Package {package_name} already installed, skipping")
-
-    if packages_to_install:
-        adcore_logger.info(f"Installing {len(packages_to_install)} missing packages...")
-        try:
-            # Install packages in batches to avoid command line length limits
-            batch_size = 50
-            for i in range(0, len(packages_to_install), batch_size):
-                batch = packages_to_install[i:i + batch_size]
-                result = subprocess.run([
-                    sys.executable, "-m", "pip", "install", "--quiet"
-                ] + batch, capture_output=True, text=True, timeout=300)
-
-                if result.returncode != 0:
-                    adcore_logger.error(f"Failed to install package batch: {result.stderr}")
-                    raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
-
-            adcore_logger.info("Package installation completed successfully")
-        except subprocess.TimeoutExpired:
-            adcore_logger.error("Package installation timed out")
-            raise
-    else:
-        adcore_logger.info("All required packages are already installed")
-
-
-async def _re_resolve_dependencies():
-    """Re-resolve dependencies using the dependency manager."""
-    await re_resolve_dependencies()
 
 
 def _discover_and_import_models(directory: str, base_module_path: str, logger: logging.Logger):
@@ -465,7 +258,6 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                     app.include_router(plugin_router, prefix=record.base_path_prefix, tags=module_meta.get("tags", [record.display_name]))
                     adcore_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
 
-                    # Run module tests if test_entry_point is defined
                     test_entry_point = module_meta.get("test_entry_point")
                     if test_entry_point:
                         await run_module_tests(module_name, module_path, test_entry_point)
@@ -487,7 +279,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
 
     if re_resolve_required:
         adcore_logger.info("Changes detected in module configuration. Re-resolving dependencies.")
-        await _re_resolve_dependencies()
+        await re_resolve_dependencies()
         adcore_logger.info("Dependencies resolved. A server restart is required to load the new modules.")
     else:
         adcore_logger.info("No changes in module configuration detected. Skipping dependency resolution.")
@@ -537,9 +329,8 @@ async def install_adcore_module_endpoint(file: UploadFile = File(...), db: Sessi
             os.utime(loaded_module_dir, (os.path.getmtime(target_adcore_path), os.path.getmtime(target_adcore_path)))
         adcore_logger.info(f"Successfully unzipped module '{module_name}' to '{loaded_module_dir}'.")
 
-        # Invalidate cache for the newly installed module
-        _invalidate_module_cache(module_name)
-        await _re_resolve_dependencies()
+        await invalidate_module_cache(module_name)
+        await re_resolve_dependencies()
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={"message": f"Module '{module_name}' installed/updated successfully. Please restart the API server to apply changes."}
@@ -597,9 +388,8 @@ async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)
     db.refresh(module_record)
     adcore_logger.info(f"Module '{module_name}' marked as enabled in DB. Please restart the API server to activate.")
 
-    # Invalidate cache for the enabled module
-    _invalidate_module_cache(module_name)
-    await _re_resolve_dependencies()
+    await invalidate_module_cache(module_name)
+    await re_resolve_dependencies()
     
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -628,9 +418,8 @@ async def disable_module_endpoint(module_name: str, db: Session = Depends(get_db
     db.refresh(module_record)
     adcore_logger.info(f"Module '{module_name}' marked as disabled in DB. Please restart the API server to deactivate.")
 
-    # Invalidate cache for the disabled module
-    _invalidate_module_cache(module_name)
-    await _re_resolve_dependencies()
+    await invalidate_module_cache(module_name)
+    await re_resolve_dependencies()
     
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -663,9 +452,8 @@ async def uninstall_module_endpoint(module_name: str, db: Session = Depends(get_
         db.commit()
         adcore_logger.info(f"Module '{module_name}' record deleted from database.")
 
-        # Invalidate cache for the uninstalled module
-        _invalidate_module_cache(module_name)
-        await _re_resolve_dependencies()
+        await invalidate_module_cache(module_name)
+        await re_resolve_dependencies()
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={"message": f"Module '{module_name}' uninstalled. Please restart the API server to apply changes."}

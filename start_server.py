@@ -2,21 +2,18 @@
 """
 Safe server startup script that prevents auto-reloader loops.
 """
-import os
 import sys
 import subprocess
-import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(level)s - %(message)s')
-logger = logging.getLogger(__name__)
+from src.logger import LogLevels, configure_logging
+
+logger = configure_logging(log_level=LogLevels.INFO)
 
 def run_tests_safely():
     """Run tests in a way that doesn't trigger auto-reloader."""
     logger.info("Running backbone tests safely...")
 
     try:
-        # Only run backbone tests automatically (exclude module management tests)
         result = subprocess.run([
             sys.executable, "-m", "pytest", "tests/test_backbone.py",
             "-v", "--tb=short", "--no-header"
@@ -49,7 +46,7 @@ def start_server():
             "main:app",
             host="0.0.0.0",
             port=8080,
-            reload=False  # Explicitly disable reload
+            reload=False
         )
     except Exception as e:
         logger.error(f"❌ Error starting server: {e}")
@@ -59,12 +56,10 @@ def main():
     """Main startup sequence."""
     logger.info("🚀 Starting AdCore API Server (Safe Mode)")
 
-    # Step 1: Run tests
     if not run_tests_safely():
         logger.error("❌ Tests failed. Server startup aborted.")
         sys.exit(1)
 
-    # Step 2: Start server
     logger.info("✅ Tests passed. Starting server...")
     start_server()
 

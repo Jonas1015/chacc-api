@@ -1,7 +1,6 @@
 import logging
 from fastapi import FastAPI
 from slowapi import Limiter
-from sqlalchemy.orm import Session
 from typing import Callable, Any, Dict
 
 class BackboneContext:

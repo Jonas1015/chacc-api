@@ -4,7 +4,9 @@ from decouple import config
 MODULES_INSTALLED_DIR = "modules_installed"
 MODULES_LOADED_DIR = ".modules_loaded"
 MODULES_UPLOAD_DIR = ".modules_upload"
-BACKBONE_REQUIREMENTS_LOCK_FILE = f"{MODULES_LOADED_DIR}/compiled_requirements.lock"
+DEPENDENCY_CACHE_DIR = ".adcore_cache"
+BACKBONE_REQUIREMENTS_LOCK_FILE = f"{DEPENDENCY_CACHE_DIR}/compiled_requirements.lock"
+DEPENDENCY_CACHE_FILE = f"{DEPENDENCY_CACHE_DIR}/dependency_cache.json"
 
 DATABASE_ENGINE = config("DATABASE_ENGINE", default="sqlite", cast=str)
 DATABASE_NAME = config("DATABASE_NAME", default="opentzdb")
@@ -25,3 +27,4 @@ LOG_FORMAT_DEBUG = "%(log_color)s%(levelname)s%(reset)s %(asctime)s:%(message)s:
 os.makedirs(MODULES_INSTALLED_DIR, exist_ok=True)
 os.makedirs(MODULES_LOADED_DIR, exist_ok=True)
 os.makedirs(MODULES_UPLOAD_DIR, exist_ok=True)
+os.makedirs(DEPENDENCY_CACHE_DIR, exist_ok=True)

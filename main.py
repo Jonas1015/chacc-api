@@ -1,4 +1,6 @@
 import logging
+import subprocess
+import sys
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
@@ -9,6 +11,67 @@ from src.logger import configure_logging, LogLevels
 from src.core_services import BackboneContext
 
 adcore_logger = configure_logging(log_level=LogLevels.INFO)
+
+
+async def run_backbone_tests():
+    """
+    Run backbone unit tests on startup.
+    Raises RuntimeError if tests fail to prevent app startup.
+    """
+    adcore_logger.info("Running backbone unit tests...")
+    try:
+        result = subprocess.run([
+            sys.executable, "-m", "pytest", "tests/test_backbone.py",
+            "-v", "--tb=short", "--no-header"
+        ], capture_output=True, text=True, cwd=".")
+
+        passed_tests = []
+        failed_tests = []
+
+        if result.stdout:
+            lines = result.stdout.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                if 'PASSED' in line:
+                    passed_tests.append(line)
+                elif 'FAILED' in line or 'ERROR' in line:
+                    failed_tests.append(line)
+
+        if result.returncode == 0:
+            adcore_logger.info(f"All backbone tests passed successfully ({len(passed_tests)} tests)")
+            if passed_tests:
+                adcore_logger.info("Passed tests:")
+                for test in passed_tests:
+                    adcore_logger.info(f"  ✓ {test}")
+        else:
+            adcore_logger.error(f"Backbone tests failed with return code {result.returncode}")
+
+            if passed_tests:
+                adcore_logger.info(f"Passed tests ({len(passed_tests)}):")
+                for test in passed_tests:
+                    adcore_logger.info(f"  ✓ {test}")
+
+            if failed_tests:
+                adcore_logger.error(f"Failed tests ({len(failed_tests)}):")
+                for test in failed_tests:
+                    adcore_logger.error(f"  ✗ {test}")
+            else:
+                adcore_logger.error("Test output:")
+                if result.stdout:
+                    adcore_logger.error(result.stdout)
+
+            if result.stderr:
+                adcore_logger.error(f"Test stderr: {result.stderr}")
+
+            raise RuntimeError(f"Backbone tests failed ({len(failed_tests)} failed, {len(passed_tests)} passed). Application startup aborted.")
+
+    except subprocess.CalledProcessError as e:
+        adcore_logger.error(f"Error running backbone tests: {e}")
+        raise RuntimeError(f"Backbone tests failed. Application startup aborted.")
+    except Exception as e:
+        adcore_logger.error(f"Unexpected error running backbone tests: {e}")
+        raise RuntimeError(f"Backbone tests failed due to unexpected error. Application startup aborted.")
+
 
 @asynccontextmanager
 async def onStartupLifespan(app: FastAPI):
@@ -39,11 +102,11 @@ async def onStartupLifespan(app: FastAPI):
     if not modules_table_exists:
         await run_automatic_migration()
 
+    await run_backbone_tests()
+
     await load_modules(app, backbone_context)
     
     await run_automatic_migration()
-    
-    adcore_logger.info("Application startup complete.")
     
     yield
     

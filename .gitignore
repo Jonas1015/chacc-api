@@ -153,6 +153,7 @@ modules_installed/
 modules
 modules_loaded
 .modules_loaded
+.adcore_cache/
 *.adcore
 *.db
 plugins/

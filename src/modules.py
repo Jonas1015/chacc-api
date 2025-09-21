@@ -257,10 +257,6 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                     adcore_logger.info(f"Mounting router for module '{module_name}' at prefix: {record.base_path_prefix}")
                     app.include_router(plugin_router, prefix=record.base_path_prefix, tags=module_meta.get("tags", [record.display_name]))
                     adcore_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
-
-                    test_entry_point = module_meta.get("test_entry_point")
-                    if test_entry_point:
-                        await run_module_tests(module_name, module_path, test_entry_point)
                 else:
                     adcore_logger.warning(f"Plugin '{module_name}': Setup function did not return an APIRouter.")
 
@@ -329,7 +325,7 @@ async def install_adcore_module_endpoint(file: UploadFile = File(...), db: Sessi
             os.utime(loaded_module_dir, (os.path.getmtime(target_adcore_path), os.path.getmtime(target_adcore_path)))
         adcore_logger.info(f"Successfully unzipped module '{module_name}' to '{loaded_module_dir}'.")
 
-        await invalidate_module_cache(module_name)
+        invalidate_module_cache(module_name)
         await re_resolve_dependencies()
         return JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -388,7 +384,7 @@ async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)
     db.refresh(module_record)
     adcore_logger.info(f"Module '{module_name}' marked as enabled in DB. Please restart the API server to activate.")
 
-    await invalidate_module_cache(module_name)
+    invalidate_module_cache(module_name)
     await re_resolve_dependencies()
     
     return JSONResponse(
@@ -418,7 +414,7 @@ async def disable_module_endpoint(module_name: str, db: Session = Depends(get_db
     db.refresh(module_record)
     adcore_logger.info(f"Module '{module_name}' marked as disabled in DB. Please restart the API server to deactivate.")
 
-    await invalidate_module_cache(module_name)
+    invalidate_module_cache(module_name)
     await re_resolve_dependencies()
     
     return JSONResponse(
@@ -452,7 +448,7 @@ async def uninstall_module_endpoint(module_name: str, db: Session = Depends(get_
         db.commit()
         adcore_logger.info(f"Module '{module_name}' record deleted from database.")
 
-        await invalidate_module_cache(module_name)
+        invalidate_module_cache(module_name)
         await re_resolve_dependencies()
         return JSONResponse(
             status_code=status.HTTP_200_OK,

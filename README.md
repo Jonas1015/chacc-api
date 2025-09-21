@@ -351,6 +351,11 @@ This is a powerful feature that directly modifies the database based on the load
 
 ### Creating modules with AdCore API Command Line Tool (adcore_cli)
 
+The AdCore CLI has been refactored for better maintainability. Commands are now organized in separate modules:
+
+- **CLI Entry Point**: `adcore_cli/__main__.py` - Command argument parsing
+- **Command Implementations**: `adcore_cli/commands.py` - Core functionality
+
 To create a new module with AdCore Command Line Tool you will need to run this command inside the project root folder:
 ```
 python3 -m adcore_cli create module_name
@@ -373,11 +378,11 @@ plugins/your_module/
 
 #### **Built-in Testing Features**
 Every generated module includes:
-- **Automatic Test Discovery**: Tests run when module is loaded
-- **Test Entry Point**: Configured in `module_meta.json`
+- **Test Infrastructure**: Complete testing setup ready to use
+- **Test Entry Point**: Configured in `module_meta.json` for manual testing
 - **Test Fixtures**: Pre-configured client and context fixtures
-- **Test Runner**: `run_module_tests()` function for AdCore integration
-- **Test Templates**: Ready-to-use test examples
+- **Test Runner**: `run_module_tests()` function for developer-controlled testing
+- **Test Templates**: Ready-to-use test examples and comprehensive test suite
 
 #### **Module Test Configuration**
 ```json
@@ -391,10 +396,14 @@ Every generated module includes:
 
 #### **Running Module Tests**
 ```python
-# Tests run automatically when module loads
-# Or run manually:
+# Module tests are developer responsibility - run manually:
 cd plugins/your_module
 python -m pytest module/tests/
+
+# Or use the module's test runner:
+from module.tests.test_module import run_module_tests
+import asyncio
+asyncio.run(run_module_tests())
 ```
 
 To build this module run:
@@ -404,7 +413,53 @@ python3 -m adcore_cli build path/to/module_name
 
 for the case of default path it should be `plugins/{module_name}`
 
-Then deploy this module in POST `/module` API
+#### **Deploy a Module to Remote Server**
+```bash
+# Set deployment configuration in .env file
+echo "ADCORE_DEPLOY_URL=http://your-api-server.com" >> .env
+echo "ADCORE_DEPLOY_API_KEY=your-optional-api-key" >> .env
+
+# Deploy the built module
+python3 -m adcore_cli deploy your_module.adcore
+```
+
+**Deployment Configuration:**
+- `ADCORE_DEPLOY_URL`: URL of your remote AdCore API server
+- `ADCORE_DEPLOY_API_KEY`: Optional API key for authentication
+- `ADCORE_DEPLOY_TIMEOUT`: Request timeout in seconds (default: 30)
+
+**Deployment Process:**
+1. CLI reads configuration from `.env` file
+2. Uploads the `.adcore` file to remote `/modules/` endpoint
+3. Remote server installs and enables the module
+4. **Server restart required** to activate the module
+
+**Example Workflow:**
+```bash
+# 1. Create and develop module
+python -m adcore_cli create my_feature
+
+# 2. Build the module
+python -m adcore_cli build plugins/my_feature
+
+# 3. Deploy to remote server
+python -m adcore_cli deploy my_feature.adcore
+
+# 4. Restart remote server
+# (Server restart activates the new module)
+```
+
+**Complete Development Workflow:**
+```bash
+# Local development
+python -m adcore_cli create authentication
+# Edit plugins/authentication/module/main.py
+python -m adcore_cli build plugins/authentication
+
+# Remote deployment
+python -m adcore_cli deploy authentication.adcore
+# Restart remote server
+```
 
 ### Dependency Management
 
@@ -584,8 +639,8 @@ These tests verify the complete module lifecycle but create files that could int
 - Require cleanup after execution
 - **Excluded from automatic startup testing**
 
-#### 3. **Module-Specific Tests (Automatic per Module)**
-Each module can define its own tests that run when the module is loaded.
+#### 3. **Module-Specific Tests (Developer Responsibility)**
+Each module can define its own tests that developers run manually.
 
 **What they test:**
 - Module-specific functionality
@@ -594,9 +649,10 @@ Each module can define its own tests that run when the module is loaded.
 - Module business logic
 
 **When they run:**
-- Automatically when module is loaded/enabled
-- Part of the module loading process
-- Configured via `test_entry_point` in `module_meta.json`
+- Manually by module developers
+- During development and testing phases
+- Before deployment and releases
+- Configured via `test_entry_point` in `module_meta.json` (for framework support)
 
 ### Running Tests
 
@@ -668,14 +724,22 @@ INFO: Passed tests:
   ✓ tests/test_backbone.py::test_get_modules_empty PASSED
 ```
 
-#### **Module Test Results**
+#### **Module Test Results (Manual Only)**
 ```
-INFO: Tests for module 'authentication' passed successfully.
+# Module tests run manually by developers
+$ cd plugins/authentication && python -m pytest module/tests/
+================================ test session starts ================================
+collected 5 items
+
+module/tests/test_module.py::test_authentication_login PASSED
+module/tests/test_module.py::test_authentication_logout PASSED
+...
+========================= 5 passed in 2.34s =========================
 ```
 
 #### **Test Failure Handling**
-- **Backbone test failures**: Abort application startup
-- **Module test failures**: Log warnings, continue loading other modules
+- **Backbone test failures**: Abort application startup (critical safety check)
+- **Module test failures**: Developer responsibility - run manually during development
 - **Manual test failures**: Standard pytest output with detailed error information
 
 ### Writing Module Tests
@@ -793,27 +857,31 @@ This testing architecture ensures that AdCore API maintains high quality and rel
 
 ## Standalone Components
 
-### Dependency Manager Package
+### Dependency Manager Module
 
-The AdCore API platform includes a sophisticated dependency management system that has been designed as a standalone package. This component can be used independently in other Python projects that require intelligent dependency resolution.
+The AdCore API platform includes a sophisticated dependency management system that can be used as a standalone component. Located in `src/dependency_manager.py`, this module provides intelligent dependency resolution for modular Python applications.
 
 **Key Features:**
 - Incremental dependency resolution with caching
 - Module-level granularity for change detection
 - Smart package installation with duplicate detection
 - Automatic cache invalidation and conflict resolution
+- Comprehensive logging and error handling
 
-**Usage as Standalone Package:**
+**Usage as Standalone Component:**
 ```python
-from dependency_manager import DependencyManager
+from src.dependency_manager import DependencyManager
 
-dm = DependencyManager()if os.getenv("NO_RELOAD", "").lower() in ("true", "1", "yes"):
-    
+dm = DependencyManager()
 await dm.resolve_dependencies()
 ```
 
+**Core Classes:**
+- `DependencyManager`: Main class for dependency resolution and caching
+- Helper functions: `calculate_module_hash()`, `load_dependency_cache()`, etc.
+
 **Documentation:** See `src/dependency_manager_readme.md` for complete API documentation and usage examples.
 
-**Publishing:** This component is designed to be published as a separate PyPI package for use in other modular Python applications.
+**Architecture:** The dependency manager is designed with clean separation of concerns, making it suitable for extraction into a separate package if needed for other projects.
 
 This modular architecture allows AdCore API to provide enterprise-grade features while maintaining clean separation of concerns and reusability.

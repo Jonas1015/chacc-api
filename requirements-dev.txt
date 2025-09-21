@@ -3,5 +3,6 @@ pip-tools
 pytest
 pytest-asyncio
 httpx
+requests
 black
 ruff

@@ -18,7 +18,6 @@ class ChaCCDependencyManager:
 
     def __init__(self, cache_dir: Optional[str] = None, logger=None):
         """Initialize with ChaCC-specific configuration."""
-        # Use ChaCC's cache directory
         if cache_dir is None:
             from .constants import DEPENDENCY_CACHE_DIR
             cache_dir = DEPENDENCY_CACHE_DIR
@@ -36,16 +35,13 @@ class ChaCCDependencyManager:
 
         db = await anext(get_db())
         try:
-            # Get all enabled modules from database
             enabled_modules = db.query(ModuleRecord).filter_by(is_enabled=True).all()
 
-            # Build requirements dictionary
             modules_requirements = {}
             for module in enabled_modules:
                 module_name = module.name
                 module_meta = module.meta_data if module.meta_data else {}
 
-                # Find requirements file for this module
                 dependencies_file_name = module_meta.get("dependencies_file", "requirements.txt")
                 from .constants import MODULES_LOADED_DIR
                 module_req_path = os.path.join(MODULES_LOADED_DIR, module_name, dependencies_file_name)
@@ -55,14 +51,12 @@ class ChaCCDependencyManager:
                         req_content = f.read()
                     modules_requirements[module_name] = req_content
 
-            # Also include backbone requirements if they exist
             backbone_req_path = os.path.join(os.path.dirname(__file__), '..', 'requirements.txt')
             if os.path.exists(backbone_req_path):
                 with open(backbone_req_path, 'r') as f:
                     backbone_reqs = f.read()
                 modules_requirements['backbone'] = backbone_reqs
 
-            # Use the standalone dependency manager
             if modules_requirements:
                 await self.dm.resolve_dependencies(modules_requirements)
             else:
@@ -72,13 +66,11 @@ class ChaCCDependencyManager:
             db.close()
 
 
-# Convenience function for ChaCC
-async def resolve_chacc_dependencies():
+async def resolve_chacc_dependencies(logger = None):
     """Resolve dependencies for all enabled ChaCC modules."""
-    adm = ChaCCDependencyManager()
+    adm = ChaCCDependencyManager(logger=logger)
     await adm.resolve_dependencies()
 
 
-# For backward compatibility - these functions now delegate to the package
 invalidate_module_cache = DependencyManager().invalidate_module_cache
 invalidate_dependency_cache = DependencyManager().invalidate_cache

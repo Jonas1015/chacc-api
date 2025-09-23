@@ -276,7 +276,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
 
     if re_resolve_required:
         chacc_logger.info("Changes detected in module configuration. Re-resolving dependencies.")
-        await re_resolve_dependencies()
+        await re_resolve_dependencies(logger=chacc_logger)
         chacc_logger.info("Dependencies resolved. A server restart is required to load the new modules.")
     else:
         chacc_logger.info("No changes in module configuration detected. Skipping dependency resolution.")

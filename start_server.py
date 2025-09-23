@@ -54,7 +54,7 @@ def start_server():
 
 def main():
     """Main startup sequence."""
-    logger.info("🚀 Starting AdCore API Server (Safe Mode)")
+    logger.info("🚀 Starting ChaCC API Server (Safe Mode)")
 
     if not run_tests_safely():
         logger.error("❌ Tests failed. Server startup aborted.")

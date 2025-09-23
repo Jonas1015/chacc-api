@@ -1,5 +1,5 @@
 """
-Unit tests for AdCore API Backbone.
+Unit tests for ChaCC API Backbone.
 """
 import pytest
 from fastapi.testclient import TestClient
@@ -17,7 +17,7 @@ def test_root_endpoint(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "message" in response.json()
-    assert "AdCore API Backbone" in response.json()["message"]
+    assert "ChaCC API Backbone" in response.json()["message"]
 
 
 def test_docs_endpoint(client):

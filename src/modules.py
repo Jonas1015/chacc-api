@@ -15,11 +15,12 @@ from src.logger import LogLevels, configure_logging
 from .constants import MODULES_INSTALLED_DIR, MODULES_LOADED_DIR
 from .database import get_db, ModuleRecord
 from .core_services import BackboneContext
-from .dependency_manager import (
+from .chacc_dependency_manager import (
     invalidate_module_cache,
-    re_resolve_dependencies
+    resolve_chacc_dependencies as re_resolve_dependencies
 )
-adcore_logger = configure_logging(log_level=LogLevels.INFO)
+
+chacc_logger = configure_logging(log_level=LogLevels.INFO)
 
 
 
@@ -41,30 +42,30 @@ def _discover_and_import_models(directory: str, base_module_path: str, logger: l
                     module = importlib.util.module_from_spec(spec)
                     sys.modules[module_name] = module
                     spec.loader.exec_module(module)
-                    adcore_logger.info(f"Dynamically imported models from: {module_name}")
+                    chacc_logger.info(f"Dynamically imported models from: {module_name}")
                 except Exception as e:
-                    adcore_logger.error(f"Failed to import models from {file_path}: {e}", exc_info=True)
+                    chacc_logger.error(f"Failed to import models from {file_path}: {e}", exc_info=True)
 
 
 async def run_module_tests(module_name: str, module_path: str, test_entry_point: str):
     """
     Run tests for a specific module.
     """
-    adcore_logger.info(f"Running tests for module '{module_name}'...")
+    chacc_logger.info(f"Running tests for module '{module_name}'...")
     try:
         module_relative_path, func_name = test_entry_point.split(":")
         test_code_dir = os.path.join(module_path, "module")
         test_main_file_path = os.path.join(test_code_dir, *module_relative_path.split('.')) + ".py"
 
         if not os.path.exists(test_main_file_path):
-            adcore_logger.warning(f"Test entry point file '{test_main_file_path}' not found for module '{module_name}'.")
+            chacc_logger.warning(f"Test entry point file '{test_main_file_path}' not found for module '{module_name}'.")
             return
 
         sys.path.insert(0, test_code_dir)
 
         spec = importlib.util.spec_from_file_location(module_relative_path, test_main_file_path)
         if spec is None:
-            adcore_logger.error(f"Could not create spec for test module '{module_name}'.")
+            chacc_logger.error(f"Could not create spec for test module '{module_name}'.")
             return
 
         test_module = importlib.util.module_from_spec(spec)
@@ -72,16 +73,16 @@ async def run_module_tests(module_name: str, module_path: str, test_entry_point:
 
         test_func = getattr(test_module, func_name, None)
         if not test_func or not callable(test_func):
-            adcore_logger.warning(f"Test entry point function '{func_name}' not found or not callable for module '{module_name}'.")
+            chacc_logger.warning(f"Test entry point function '{func_name}' not found or not callable for module '{module_name}'.")
             return
 
         await test_func()
-        adcore_logger.info(f"Tests for module '{module_name}' passed successfully.")
+        chacc_logger.info(f"Tests for module '{module_name}' passed successfully.")
         
     except Exception as e:
-        adcore_logger.warning(f"Tests for module '{module_name}' failed: {str(e)}")
+        chacc_logger.warning(f"Tests for module '{module_name}' failed: {str(e)}")
         import traceback
-        adcore_logger.warning(f"Test failure details: {traceback.format_exc()}")
+        chacc_logger.warning(f"Test failure details: {traceback.format_exc()}")
     finally:
         if test_code_dir in sys.path:
             sys.path.remove(test_code_dir)
@@ -92,7 +93,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
     Discovers modules from the MODULES_INSTALLED_DIR, synchronizes the database,
     and then loads enabled modules into the application.
     """
-    adcore_logger.info("Starting module discovery and database synchronization...")
+    chacc_logger.info("Starting module discovery and database synchronization...")
     
     re_resolve_required = False
     db = await anext(get_db())
@@ -101,38 +102,38 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
         if MODULES_LOADED_DIR not in sys.path:
             sys.path.append(MODULES_LOADED_DIR)
 
-        installed_adcore_files = {f for f in os.listdir(MODULES_INSTALLED_DIR) if f.endswith('.adcore')}
+        installed_chacc_files = {f for f in os.listdir(MODULES_INSTALLED_DIR) if f.endswith('.chacc')}
         existing_records = {record.name: record for record in db.query(ModuleRecord).all()}
         
-        for adcore_filename in installed_adcore_files:
-            module_name = adcore_filename.replace('.adcore', '')
-            adcore_filepath = os.path.join(MODULES_INSTALLED_DIR, adcore_filename)
+        for chacc_filename in installed_chacc_files:
+            module_name = chacc_filename.replace('.chacc', '')
+            chacc_filepath = os.path.join(MODULES_INSTALLED_DIR, chacc_filename)
             loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
 
-            adcore_mtime = os.path.getmtime(adcore_filepath)
+            chacc_mtime = os.path.getmtime(chacc_filepath)
 
             is_new_module = module_name not in existing_records
             
             should_unzip = False
             if not os.path.exists(loaded_module_dir):
-                adcore_logger.info(f"New module detected on disk: '{module_name}'.")
+                chacc_logger.info(f"New module detected on disk: '{module_name}'.")
                 should_unzip = True
                 re_resolve_required = True
             else:
                 loaded_mtime = os.path.getmtime(loaded_module_dir)
-                if adcore_mtime > loaded_mtime:
-                    adcore_logger.info(f"Module '{module_name}' archive is newer than loaded directory. Unzipping again.")
+                if chacc_mtime > loaded_mtime:
+                    chacc_logger.info(f"Module '{module_name}' archive is newer than loaded directory. Unzipping again.")
                     shutil.rmtree(loaded_module_dir)
                     should_unzip = True
                     re_resolve_required = True
             
             if should_unzip:
-                adcore_logger.info(f"Unzipping module '{module_name}' to '{loaded_module_dir}'...")
-                with zipfile.ZipFile(adcore_filepath, 'r') as zip_ref:
+                chacc_logger.info(f"Unzipping module '{module_name}' to '{loaded_module_dir}'...")
+                with zipfile.ZipFile(chacc_filepath, 'r') as zip_ref:
                     os.makedirs(loaded_module_dir, exist_ok=True)
                     zip_ref.extractall(loaded_module_dir)
-                    os.utime(loaded_module_dir, (adcore_mtime, adcore_mtime))
-                adcore_logger.info(f"Unzipping for '{module_name}' completed.")
+                    os.utime(loaded_module_dir, (chacc_mtime, chacc_mtime))
+                chacc_logger.info(f"Unzipping for '{module_name}' completed.")
 
             meta_file_path = os.path.join(loaded_module_dir, "module_meta.json")
             if os.path.exists(meta_file_path):
@@ -151,7 +152,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                         meta_data=meta_data
                     )
                     db.add(new_record)
-                    adcore_logger.info(f"New module '{module_name}' found. Created new DB record.")
+                    chacc_logger.info(f"New module '{module_name}' found. Created new DB record.")
                 else:
                     record = existing_records[module_name]
                     if record.display_name != meta_data.get("display_name", record.display_name) or \
@@ -166,14 +167,14 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                         record.description = meta_data.get("description", record.description)
                         record.base_path_prefix = meta_data.get("base_path_prefix", record.base_path_prefix)
                         record.meta_data = meta_data
-                        adcore_logger.info(f"Existing module '{module_name}' metadata updated.")
+                        chacc_logger.info(f"Existing module '{module_name}' metadata updated.")
 
         
-        installed_module_names = {f.replace('.adcore', '') for f in installed_adcore_files}
+        installed_module_names = {f.replace('.chacc', '') for f in installed_chacc_files}
         for module_name, record in list(existing_records.items()):
             if module_name not in installed_module_names:
                 db.delete(record)
-                adcore_logger.warning(f"Module '{module_name}' record found in DB but not on disk. Deleting record and its code.")
+                chacc_logger.warning(f"Module '{module_name}' record found in DB but not on disk. Deleting record and its code.")
                 loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
                 if os.path.exists(loaded_module_dir):
                     shutil.rmtree(loaded_module_dir)
@@ -185,15 +186,15 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
         if module_found:
             db.refresh(module_found)
         
-        adcore_logger.info("Database synchronized with filesystem. Proceeding to load modules...")
+        chacc_logger.info("Database synchronized with filesystem. Proceeding to load modules...")
         
         query = db.query(ModuleRecord).filter_by(is_enabled=True)
         if only_modules:
             query = query.filter(ModuleRecord.name.in_(only_modules))
         if exclude_modules:
-            adcore_logger.info(f"Excluding modules from loading: {exclude_modules}")
+            chacc_logger.info(f"Excluding modules from loading: {exclude_modules}")
             if "authentication" in exclude_modules:
-                adcore_logger.warning("Skipping authentication module during initial module load.")
+                chacc_logger.warning("Skipping authentication module during initial module load.")
             query = query.filter(ModuleRecord.name.notin_(exclude_modules))
         
         updated_records = query.all()
@@ -203,11 +204,11 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
             module_path = os.path.join(MODULES_LOADED_DIR, module_name)
             
             if not record.is_enabled:
-                adcore_logger.info(f"Skipping disabled module: {module_name}")
+                chacc_logger.info(f"Skipping disabled module: {module_name}")
                 continue
             
             if not os.path.isdir(module_path):
-                adcore_logger.error(f"Module '{module_name}' marked as enabled in DB but its directory is missing: {module_path}. Setting it to disabled.")
+                chacc_logger.error(f"Module '{module_name}' marked as enabled in DB but its directory is missing: {module_path}. Setting it to disabled.")
                 record.is_enabled = False
                 db.commit()
                 continue
@@ -222,7 +223,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 entry_point_str = module_meta.get("entry_point")
                 
                 if not entry_point_str or ":" not in entry_point_str:
-                    adcore_logger.warning(f"Skipping '{module_name}': Invalid 'entry_point' in DB metadata.")
+                    chacc_logger.warning(f"Skipping '{module_name}': Invalid 'entry_point' in DB metadata.")
                     continue
 
                 module_relative_path, func_name = entry_point_str.split(":")
@@ -230,7 +231,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 plugin_main_file_path = os.path.join(plugin_code_dir, *module_relative_path.split('.')) + ".py"
 
                 if not os.path.exists(plugin_main_file_path):
-                    adcore_logger.warning(f"Skipping '{module_name}': Entry point file '{plugin_main_file_path}' not found on disk. Setting module to disabled.")
+                    chacc_logger.warning(f"Skipping '{module_name}': Entry point file '{plugin_main_file_path}' not found on disk. Setting module to disabled.")
                     record.is_enabled = False
                     db.commit()
                     continue
@@ -239,7 +240,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
 
                 spec = importlib.util.spec_from_file_location(module_relative_path, plugin_main_file_path)
                 if spec is None:
-                    adcore_logger.error(f"Could not create spec for module '{module_name}'.")
+                    chacc_logger.error(f"Could not create spec for module '{module_name}'.")
                     continue
                 
                 module = importlib.util.module_from_spec(spec)
@@ -247,54 +248,54 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 
                 setup_func = getattr(module, func_name, None)
                 if not setup_func or not callable(setup_func):
-                    adcore_logger.warning(f"Plugin '{module_name}': Entry point function '{func_name}' not found or not callable after import.")
+                    chacc_logger.warning(f"Plugin '{module_name}': Entry point function '{func_name}' not found or not callable after import.")
                     continue
 
                 
                 plugin_router = setup_func(backbone_context)
 
                 if plugin_router and isinstance(plugin_router, APIRouter):
-                    adcore_logger.info(f"Mounting router for module '{module_name}' at prefix: {record.base_path_prefix}")
+                    chacc_logger.info(f"Mounting router for module '{module_name}' at prefix: {record.base_path_prefix}")
                     app.include_router(plugin_router, prefix=record.base_path_prefix, tags=module_meta.get("tags", [record.display_name]))
-                    adcore_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
+                    chacc_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
                 else:
-                    adcore_logger.warning(f"Plugin '{module_name}': Setup function did not return an APIRouter.")
+                    chacc_logger.warning(f"Plugin '{module_name}': Setup function did not return an APIRouter.")
 
             except Exception as e:
-                adcore_logger.error(f"Error loading module '{module_name}': {e}", exc_info=True)
+                chacc_logger.error(f"Error loading module '{module_name}': {e}", exc_info=True)
             finally:
                 if plugin_code_dir in sys.path:
                     sys.path.remove(plugin_code_dir)
 
     finally:
         db.close()
-        adcore_logger.debug("Database session for module loading closed.")
+        chacc_logger.debug("Database session for module loading closed.")
     
     if MODULES_LOADED_DIR in sys.path:
         sys.path.remove(MODULES_LOADED_DIR)
 
     if re_resolve_required:
-        adcore_logger.info("Changes detected in module configuration. Re-resolving dependencies.")
+        chacc_logger.info("Changes detected in module configuration. Re-resolving dependencies.")
         await re_resolve_dependencies()
-        adcore_logger.info("Dependencies resolved. A server restart is required to load the new modules.")
+        chacc_logger.info("Dependencies resolved. A server restart is required to load the new modules.")
     else:
-        adcore_logger.info("No changes in module configuration detected. Skipping dependency resolution.")
+        chacc_logger.info("No changes in module configuration detected. Skipping dependency resolution.")
 
-    adcore_logger.info("Module loading completed.")
+    chacc_logger.info("Module loading completed.")
 
 modules_router = APIRouter()
 
 @modules_router.post("/modules/")
-async def install_adcore_module_endpoint(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
-    Installs a new AdCore API module from an .adcore package.
+    Installs a new ChaCC API module from an .chacc package.
     Requires server restart to activate/deactivate the new module.
     """
-    if not file.filename.endswith(".adcore"):
-        adcore_logger.error(f"Uploaded file '{file.filename}' is not a .adcore package.")
+    if not file.filename.endswith(".chacc"):
+        chacc_logger.error(f"Uploaded file '{file.filename}' is not a .chacc package.")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only .adcore module packages are allowed."
+            detail="Only .chacc module packages are allowed."
         )
 
     file_content = await file.read()
@@ -305,25 +306,25 @@ async def install_adcore_module_endpoint(file: UploadFile = File(...), db: Sessi
                 with zip_ref.open('module_meta.json') as meta_file:
                     meta_data = json.load(meta_file)
             except KeyError:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing 'module_meta.json' in the .adcore package.")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing 'module_meta.json' in the .chacc package.")
             
             module_name = meta_data.get("name")
             if not module_name:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'name' field is missing in 'module_meta.json'.")
 
-            target_adcore_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.adcore")
-            with open(target_adcore_path, "wb") as f:
+            target_chacc_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.chacc")
+            with open(target_chacc_path, "wb") as f:
                 f.write(file_content)
-            adcore_logger.info(f"Module archive '{module_name}.adcore' saved to '{target_adcore_path}'.")
+            chacc_logger.info(f"Module archive '{module_name}.chacc' saved to '{target_chacc_path}'.")
 
         loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
         if os.path.exists(loaded_module_dir):
             shutil.rmtree(loaded_module_dir)
-        with zipfile.ZipFile(target_adcore_path, 'r') as zip_ref:
+        with zipfile.ZipFile(target_chacc_path, 'r') as zip_ref:
             os.makedirs(loaded_module_dir, exist_ok=True)
             zip_ref.extractall(loaded_module_dir)
-            os.utime(loaded_module_dir, (os.path.getmtime(target_adcore_path), os.path.getmtime(target_adcore_path)))
-        adcore_logger.info(f"Successfully unzipped module '{module_name}' to '{loaded_module_dir}'.")
+            os.utime(loaded_module_dir, (os.path.getmtime(target_chacc_path), os.path.getmtime(target_chacc_path)))
+        chacc_logger.info(f"Successfully unzipped module '{module_name}' to '{loaded_module_dir}'.")
 
         invalidate_module_cache(module_name)
         await re_resolve_dependencies()
@@ -334,7 +335,7 @@ async def install_adcore_module_endpoint(file: UploadFile = File(...), db: Sessi
     except HTTPException as e:
         raise e
     except Exception as e:
-        adcore_logger.error(f"Error during module installation: {e}", exc_info=True)
+        chacc_logger.error(f"Error during module installation: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Installation failed: {e}")
             
 @modules_router.get("/modules/")
@@ -370,19 +371,19 @@ async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)
     if module_record.is_enabled:
         return JSONResponse(content={"message": f"Module '{module_name}' is already enabled."})
         
-    adcore_filepath = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.adcore")
+    chacc_filepath = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.chacc")
     loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
-    if os.path.exists(adcore_filepath):
+    if os.path.exists(chacc_filepath):
         shutil.rmtree(loaded_module_dir, ignore_errors=True)
-        with zipfile.ZipFile(adcore_filepath, 'r') as zip_ref:
+        with zipfile.ZipFile(chacc_filepath, 'r') as zip_ref:
             os.makedirs(loaded_module_dir, exist_ok=True)
             zip_ref.extractall(loaded_module_dir)
-            os.utime(loaded_module_dir, (os.path.getmtime(adcore_filepath), os.path.getmtime(adcore_filepath)))
+            os.utime(loaded_module_dir, (os.path.getmtime(chacc_filepath), os.path.getmtime(chacc_filepath)))
 
     module_record.is_enabled = True
     db.commit()
     db.refresh(module_record)
-    adcore_logger.info(f"Module '{module_name}' marked as enabled in DB. Please restart the API server to activate.")
+    chacc_logger.info(f"Module '{module_name}' marked as enabled in DB. Please restart the API server to activate.")
 
     invalidate_module_cache(module_name)
     await re_resolve_dependencies()
@@ -407,12 +408,12 @@ async def disable_module_endpoint(module_name: str, db: Session = Depends(get_db
     loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
     if os.path.exists(loaded_module_dir):
         shutil.rmtree(loaded_module_dir)
-        adcore_logger.info(f"Successfully deleted module code directory: {loaded_module_dir}")
+        chacc_logger.info(f"Successfully deleted module code directory: {loaded_module_dir}")
 
     module_record.is_enabled = False
     db.commit()
     db.refresh(module_record)
-    adcore_logger.info(f"Module '{module_name}' marked as disabled in DB. Please restart the API server to deactivate.")
+    chacc_logger.info(f"Module '{module_name}' marked as disabled in DB. Please restart the API server to deactivate.")
 
     invalidate_module_cache(module_name)
     await re_resolve_dependencies()
@@ -437,16 +438,16 @@ async def uninstall_module_endpoint(module_name: str, db: Session = Depends(get_
         loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
         if os.path.exists(loaded_module_dir):
             shutil.rmtree(loaded_module_dir)
-            adcore_logger.info(f"Successfully deleted module code directory: {loaded_module_dir}")
+            chacc_logger.info(f"Successfully deleted module code directory: {loaded_module_dir}")
             
-        archive_file_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.adcore")
+        archive_file_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.chacc")
         if os.path.exists(archive_file_path):
             os.remove(archive_file_path)
-            adcore_logger.info(f"Successfully deleted module archive: {archive_file_path}")
+            chacc_logger.info(f"Successfully deleted module archive: {archive_file_path}")
 
         db.delete(module_record)
         db.commit()
-        adcore_logger.info(f"Module '{module_name}' record deleted from database.")
+        chacc_logger.info(f"Module '{module_name}' record deleted from database.")
 
         invalidate_module_cache(module_name)
         await re_resolve_dependencies()
@@ -457,7 +458,7 @@ async def uninstall_module_endpoint(module_name: str, db: Session = Depends(get_
 
     except Exception as e:
         db.rollback()
-        adcore_logger.exception(f"Error during module uninstall of '{module_name}'.")
+        chacc_logger.exception(f"Error during module uninstall of '{module_name}'.")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to uninstall module: {e}. Manual intervention may be required."

@@ -55,27 +55,27 @@ def test_get_modules_empty(client):
 
 
 def test_upload_invalid_file(client):
-    """Test uploading a file that is not a .adcore package."""
+    """Test uploading a file that is not a .chacc package."""
     response = client.post("/modules/", files={"file": ("test.txt", b"not a zip file", "text/plain")})
     assert response.status_code == 400
-    assert "Only .adcore module packages are allowed" in response.json()["detail"]
+    assert "Only .chacc module packages are allowed" in response.json()["detail"]
 
 
-def test_upload_malformed_adcore(client):
-    """Test uploading a malformed .adcore file (missing module_meta.json)."""
+def test_upload_malformed_chacc(client):
+    """Test uploading a malformed .chacc file (missing module_meta.json)."""
     import io
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
         zip_file.writestr("some_file.txt", "content")
 
     zip_buffer.seek(0)
-    response = client.post("/modules/", files={"file": ("test.adcore", zip_buffer, "application/zip")})
+    response = client.post("/modules/", files={"file": ("test.chacc", zip_buffer, "application/zip")})
     assert response.status_code == 400
     assert "Missing 'module_meta.json'" in response.json()["detail"]
 
 
-def test_upload_adcore_missing_name(client):
-    """Test uploading a .adcore file with module_meta.json but missing name field."""
+def test_upload_chacc_missing_name(client):
+    """Test uploading a .chacc file with module_meta.json but missing name field."""
     import io
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
@@ -83,13 +83,13 @@ def test_upload_adcore_missing_name(client):
         zip_file.writestr("module_meta.json", json.dumps(meta_data))
 
     zip_buffer.seek(0)
-    response = client.post("/modules/", files={"file": ("test.adcore", zip_buffer, "application/zip")})
+    response = client.post("/modules/", files={"file": ("test.chacc", zip_buffer, "application/zip")})
     assert response.status_code == 400
     assert "'name' field is missing" in response.json()["detail"]
 
 
-def test_upload_valid_adcore(client):
-    """Test uploading a valid .adcore file - simplified version."""
+def test_upload_valid_chacc(client):
+    """Test uploading a valid .chacc file - simplified version."""
     # Create a simple test module inline to avoid dependency resolution
     import io
     zip_buffer = io.BytesIO()
@@ -122,7 +122,7 @@ def setup(backbone_context):
     zip_buffer.seek(0)
 
     # Upload the module
-    response = client.post("/modules/", files={"file": ("simple_test_module.adcore", zip_buffer, "application/zip")})
+    response = client.post("/modules/", files={"file": ("simple_test_module.chacc", zip_buffer, "application/zip")})
 
     # Should succeed or conflict if already exists
     assert response.status_code in [200, 409]

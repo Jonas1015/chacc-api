@@ -15,7 +15,7 @@ from src.constants import DATABASE_ENGINE, DATABASE_HOST, DATABASE_NAME, DATABAS
 from src.logger import LogLevels, configure_logging
 from src.core_services import BackboneContext
 
-adcore_logger = configure_logging(log_level=LogLevels.INFO)
+chacc_logger = configure_logging(log_level=LogLevels.INFO)
 
 if DATABASE_ENGINE == "postgresql":
     DATABASE_URL = f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
@@ -43,7 +43,7 @@ def register_model(cls):
     return cls
 
 @as_declarative(metadata=metadata_obj)
-class AdCoreBaseModel:
+class ChaCCBaseModel:
     @declared_attr
     def __tablename__(cls) -> str:
         return cls.__name__.lower() + "s"
@@ -51,7 +51,7 @@ class AdCoreBaseModel:
     uuid = Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
 
 @register_model
-class ModuleRecord(AdCoreBaseModel):
+class ModuleRecord(ChaCCBaseModel):
     __tablename__ = "modules"
     name = Column(String, unique=True, index=True, nullable=False)
     display_name = Column(String, nullable=True)
@@ -86,7 +86,7 @@ async def run_automatic_migration():
     Performs an automatic, on-the-fly database migration on application startup.
     WARNING: This is a destructive process in a production environment.
     """
-    adcore_logger.info("Starting automatic database migration...")
+    chacc_logger.info("Starting automatic database migration...")
 
     conn = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
     
@@ -99,7 +99,7 @@ async def run_automatic_migration():
 
         diff = compare_metadata(context, metadata_obj)
         if not diff:
-            adcore_logger.info("Database schema is up to date.")
+            chacc_logger.info("Database schema is up to date.")
             return
 
         for operation_tuple in diff:
@@ -108,47 +108,47 @@ async def run_automatic_migration():
             if op_type == 'add_table':
                 table = operation_tuple[1]
                 op.create_table(table.name, *table.columns)
-                adcore_logger.info(f"Applied migration: CREATE TABLE '{table.name}'")
+                chacc_logger.info(f"Applied migration: CREATE TABLE '{table.name}'")
 
             elif op_type == 'drop_table':
                 table = operation_tuple[1]
                 op.drop_table(table.name)
-                adcore_logger.info(f"Applied migration: DROP TABLE '{table.name}'")
+                chacc_logger.info(f"Applied migration: DROP TABLE '{table.name}'")
 
             elif op_type == 'add_column':
                 table_name, column = operation_tuple[1], operation_tuple[2]
                 op.add_column(table_name, column)
-                adcore_logger.info(f"Applied migration: ADD COLUMN '{column.name}' to '{table_name}'")
+                chacc_logger.info(f"Applied migration: ADD COLUMN '{column.name}' to '{table_name}'")
 
             elif op_type == 'drop_column':
                 table_name, column = operation_tuple[1], operation_tuple[2]
                 op.drop_column(table_name, column.name)
-                adcore_logger.info(f"Applied migration: DROP COLUMN '{column.name}' from '{table_name}'")
+                chacc_logger.info(f"Applied migration: DROP COLUMN '{column.name}' from '{table_name}'")
 
             elif op_type == 'modify_type':
                 table_name, column, existing_type, new_type = operation_tuple[1], operation_tuple[2], operation_tuple[3], operation_tuple[4]
                 op.alter_column(table_name, column.name, type_=new_type)
-                adcore_logger.info(f"Applied migration: ALTER COLUMN '{column.name}' in '{table_name}' from '{existing_type}' to '{new_type}'")
+                chacc_logger.info(f"Applied migration: ALTER COLUMN '{column.name}' in '{table_name}' from '{existing_type}' to '{new_type}'")
 
             elif op_type == 'add_index':
                 index = operation_tuple[1]
                 op.create_index(index.name, index.table.name, [c.name for c in index.columns], unique=index.unique)
-                adcore_logger.info(f"Applied migration: CREATE INDEX '{index.name}'")
+                chacc_logger.info(f"Applied migration: CREATE INDEX '{index.name}'")
 
             elif op_type == 'drop_index':
                 index = operation_tuple[1]
                 op.drop_index(index.name, index.table.name)
-                adcore_logger.info(f"Applied migration: DROP INDEX '{index.name}'")
+                chacc_logger.info(f"Applied migration: DROP INDEX '{index.name}'")
 
             elif op_type == 'create_foreign_key':
                 fk = operation_tuple[1]
                 op.create_foreign_key(fk.name, fk.table.name, fk.referred_table.name, [c.name for c in fk.columns], [rc.name for rc in fk.referred_columns])
-                adcore_logger.info(f"Applied migration: CREATE FOREIGN KEY '{fk.name}'")
+                chacc_logger.info(f"Applied migration: CREATE FOREIGN KEY '{fk.name}'")
 
             elif op_type == 'drop_foreign_key':
                 fk = operation_tuple[1]
                 op.drop_constraint(fk.name, fk.table.name, type_='foreignkey')
-                adcore_logger.info(f"Applied migration: DROP FOREIGN KEY '{fk.name}'")
+                chacc_logger.info(f"Applied migration: DROP FOREIGN KEY '{fk.name}'")
             
             elif op_type == 'add_constraint':
                 constraint = operation_tuple[1]
@@ -159,7 +159,7 @@ async def run_automatic_migration():
                         constraint.table.name,
                         [c.name for c in constraint.columns]
                     )
-                    adcore_logger.info(f"Applied migration: CREATE UNIQUE CONSTRAINT '{constraint.name}' on '{constraint.table.name}'")
+                    chacc_logger.info(f"Applied migration: CREATE UNIQUE CONSTRAINT '{constraint.name}' on '{constraint.table.name}'")
 
                 elif isinstance(constraint, PrimaryKeyConstraint):
                     op.create_primary_key(
@@ -167,7 +167,7 @@ async def run_automatic_migration():
                         constraint.table.name,
                         [c.name for c in constraint.columns]
                     )
-                    adcore_logger.info(f"Applied migration: CREATE PRIMARY KEY '{constraint.name}' on '{constraint.table.name}'")
+                    chacc_logger.info(f"Applied migration: CREATE PRIMARY KEY '{constraint.name}' on '{constraint.table.name}'")
 
                 elif isinstance(constraint, ForeignKeyConstraint):
                     op.create_foreign_key(
@@ -177,18 +177,18 @@ async def run_automatic_migration():
                         [c.name for c in constraint.columns],
                         [rc.name for rc in constraint.referred_columns]
                     )
-                    adcore_logger.info(f"Applied migration: CREATE FOREIGN KEY '{constraint.name}' on '{constraint.table.name}'")
+                    chacc_logger.info(f"Applied migration: CREATE FOREIGN KEY '{constraint.name}' on '{constraint.table.name}'")
 
                 else:
-                    adcore_logger.warning(f"Skipping unknown constraint type: {type(constraint)}")
+                    chacc_logger.warning(f"Skipping unknown constraint type: {type(constraint)}")
             
             else:
-                adcore_logger.warning(f"Skipping unknown migration operation: {op_type}")
+                chacc_logger.warning(f"Skipping unknown migration operation: {op_type}")
 
-        adcore_logger.info("Automatic database migration completed successfully.")
+        chacc_logger.info("Automatic database migration completed successfully.")
 
     except Exception as e:
-        adcore_logger.error(f"Automatic migration failed: {e}", exc_info=True)
+        chacc_logger.error(f"Automatic migration failed: {e}", exc_info=True)
         raise
     finally:
         conn.close()

@@ -1,5 +1,5 @@
 """
-AdCore CLI command implementations.
+ChaCC CLI command implementations.
 Separated from main CLI interface for better organization.
 """
 import os
@@ -16,7 +16,7 @@ cli_logger = configure_logging(log_level=LogLevels.INFO)
 
 def create_module_scaffold(module_name: str, output_dir: str):
     """
-    Creates the basic folder structure and template files for a new AdCore API module.
+    Creates the basic folder structure and template files for a new ChaCC API module.
     Includes comprehensive testing architecture.
     """
     module_root_dir = os.path.join(output_dir, module_name)
@@ -41,7 +41,7 @@ def create_module_scaffold(module_name: str, output_dir: str):
         main_py_content = f"""
 from fastapi import APIRouter, Request, Depends, HTTPException, status
 from src.core_services import BackboneContext
-from src import AdCoreBaseModel, register_model
+from src import ChaCCBaseModel, register_model
 from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String
 
@@ -52,11 +52,11 @@ _module_context: BackboneContext = None
 
 # --- Models ---
 # Decorate your models with @register_model to have them automatically included
-# in the database schema management. They should inherit from AdCoreBaseModel
+# in the database schema management. They should inherit from ChaCCBaseModel
 # to get UUID and audit fields (if the authentication module is active).
 
 # @register_model
-# class YourModel(AdCoreBaseModel):
+# class YourModel(ChaCCBaseModel):
 #     __tablename__ = "{module_name}_items"
 #     name = Column(String, index=True)
 
@@ -64,7 +64,7 @@ _module_context: BackboneContext = None
 # --- Module Setup ---
 def setup_plugin(context: BackboneContext):
     \"\"\"
-    This function is called by the AdCore API backbone to initialize your module.
+    This function is called by the ChaCC API backbone to initialize your module.
     It receives the BackboneContext, which provides access to shared services.
     \"\"\"
     global _module_context
@@ -90,14 +90,14 @@ def setup_plugin(context: BackboneContext):
 
 def get_plugin_info():
     \"\"\"
-    Provides essential information about this module to the AdCore API backbone.
+    Provides essential information about this module to the ChaCC API backbone.
     \"\"\"
     return {{
         "name": "{module_name}",
         "display_name": "{module_name.replace('_', ' ').title()} Module",
         "version": "0.1.0",
         "author": "Your Name/Organization",
-        "description": "A new AdCore API module for {module_name.replace('_', ' ')} functionality.",
+        "description": "A new ChaCC API module for {module_name.replace('_', ' ')} functionality.",
         "status": "enabled"
     }}
 """
@@ -155,7 +155,7 @@ def test_{module_name}_module_info():
 async def run_module_tests():
     \"\"\"
     Run all module tests.
-    This function is called by the AdCore backbone when the module is loaded.
+    This function is called by the ChaCC backbone when the module is loaded.
     \"\"\"
     import sys
     import os
@@ -206,12 +206,12 @@ async def run_module_tests():
             "display_name": f"{module_name.replace('_', ' ').title()} Module",
             "version": "0.1.0",
             "author": "Your Name/Organization",
-            "description": f"A new AdCore module providing {module_name.replace('_', ' ')} functionality.",
+            "description": f"A new ChaCC module providing {module_name.replace('_', ' ')} functionality.",
             "entry_point": "main:setup_plugin",
             "test_entry_point": "tests.test_module:run_module_tests",
             "base_path_prefix": f"/{module_name.replace('_', '-')}",
             "dependencies_file": "requirements.txt",
-            "required_adcore_version": ">=1.0.0",
+            "required_chacc_version": ">=1.0.0",
             "license": "MIT",
             "tags": ["testing"],
             "homepage": f"https://github.com/your-org/{module_name}"
@@ -233,9 +233,9 @@ async def run_module_tests():
             shutil.rmtree(module_root_dir)
 
 
-def build_module_adcore(module_source_dir: str, output_filename: str = None):
+def build_module_chacc(module_source_dir: str, output_filename: str = None):
     """
-    Builds an .adcore package from a module source directory.
+    Builds an .chacc package from a module source directory.
     """
     if not os.path.isdir(module_source_dir):
         cli_logger.error(f"Error: Source directory '{module_source_dir}' not found.")
@@ -255,11 +255,11 @@ def build_module_adcore(module_source_dir: str, output_filename: str = None):
         return
 
     if not output_filename:
-        output_filename = f"{module_name}.adcore"
-    elif not output_filename.endswith(".adcore"):
-        output_filename += ".adcore"
+        output_filename = f"{module_name}.chacc"
+    elif not output_filename.endswith(".chacc"):
+        output_filename += ".chacc"
 
-    temp_zip_content_dir = f"{module_name}_adcore_temp"
+    temp_zip_content_dir = f"{module_name}_chacc_temp"
     if os.path.exists(temp_zip_content_dir):
         shutil.rmtree(temp_zip_content_dir)
     os.makedirs(temp_zip_content_dir)
@@ -282,40 +282,40 @@ def build_module_adcore(module_source_dir: str, output_filename: str = None):
         cli_logger.info(f"Successfully created {output_filename}")
 
     except Exception as e:
-        cli_logger.error(f"Error creating .adcore package: {e}", exc_info=True)
+        cli_logger.error(f"Error creating .chacc package: {e}", exc_info=True)
     finally:
         if os.path.exists(temp_zip_content_dir):
             shutil.rmtree(temp_zip_content_dir)
 
 
-def deploy_module(adcore_file_path: str):
+def deploy_module(chacc_file_path: str):
     """
-    Deploys an .adcore module to a remote AdCore API instance.
+    Deploys an .chacc module to a remote ChaCC API instance.
     Reads deployment configuration from environment variables.
     """
-    if not os.path.exists(adcore_file_path):
-        cli_logger.error(f"Error: AdCore file '{adcore_file_path}' not found.")
+    if not os.path.exists(chacc_file_path):
+        cli_logger.error(f"Error: ChaCC file '{chacc_file_path}' not found.")
         return
 
     try:
-        deploy_url = config('ADCORE_DEPLOY_URL', default=None)
-        deploy_api_key = config('ADCORE_DEPLOY_API_KEY', default=None)
-        deploy_timeout = config('ADCORE_DEPLOY_TIMEOUT', default=30, cast=int)
+        deploy_url = config('CHACC_DEPLOY_URL', default=None)
+        deploy_api_key = config('CHACC_DEPLOY_API_KEY', default=None)
+        deploy_timeout = config('CHACC_DEPLOY_TIMEOUT', default=30, cast=int)
 
         if not deploy_url:
-            cli_logger.error("Error: ADCORE_DEPLOY_URL not set in environment variables.")
-            cli_logger.info("Please set ADCORE_DEPLOY_URL in your .env file (e.g., ADCORE_DEPLOY_URL=http://your-api.com)")
+            cli_logger.error("Error: CHACC_DEPLOY_URL not set in environment variables.")
+            cli_logger.info("Please set CHACC_DEPLOY_URL in your .env file (e.g., CHACC_DEPLOY_URL=http://your-api.com)")
             return
 
     except Exception as e:
         cli_logger.error(f"Error reading deployment configuration: {e}")
         return
 
-    cli_logger.info(f"Deploying '{adcore_file_path}' to {deploy_url}...")
+    cli_logger.info(f"Deploying '{chacc_file_path}' to {deploy_url}...")
 
     try:
-        with open(adcore_file_path, 'rb') as f:
-            files = {'file': (os.path.basename(adcore_file_path), f, 'application/zip')}
+        with open(chacc_file_path, 'rb') as f:
+            files = {'file': (os.path.basename(chacc_file_path), f, 'application/zip')}
             headers = {}
             if deploy_api_key:
                 headers['Authorization'] = f'Bearer {deploy_api_key}'
@@ -330,7 +330,7 @@ def deploy_module(adcore_file_path: str):
             if response.status_code == 200:
                 cli_logger.info("✅ Module deployed successfully!")
                 cli_logger.info("📝 Response: %s", response.json().get('message', 'No message'))
-                cli_logger.info("🔄 Please restart your remote AdCore API server to activate the module.")
+                cli_logger.info("🔄 Please restart your remote ChaCC API server to activate the module.")
             else:
                 cli_logger.error(f"❌ Deployment failed with status code {response.status_code}")
                 try:
@@ -343,6 +343,6 @@ def deploy_module(adcore_file_path: str):
         cli_logger.error(f"❌ Deployment timed out after {deploy_timeout} seconds")
     except requests.exceptions.ConnectionError:
         cli_logger.error(f"❌ Could not connect to {deploy_url}")
-        cli_logger.info("💡 Check that your AdCore API server is running and accessible")
+        cli_logger.info("💡 Check that your ChaCC API server is running and accessible")
     except Exception as e:
         cli_logger.error(f"❌ Deployment error: {e}")

@@ -11,3 +11,4 @@ bcrypt
 python-multipart
 email-validator
 colorlog
+chacc-dependency-manager

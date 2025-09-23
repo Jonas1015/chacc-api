@@ -12,9 +12,9 @@ config = {
     "reload_excludes": [
         ".modules_loaded",
         ".modules_upload",
-        ".adcore_cache",
+        ".chacc_cache",
         "modules_installed",
-        "*.adcore",
+        "*.chacc",
         "__pycache__",
         ".pytest_cache",
         "tests/",

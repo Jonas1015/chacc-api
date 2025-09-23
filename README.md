@@ -1,14 +1,14 @@
-# AdCore API 
+# ChaCC API 
 
 This is a python open source API engine created using Fast API. It was first created in August 2025.
 
 
-## Building with AdCore API Platform
-If as a developer you want to start development with AdCore API Platform, here are things to consider:
+## Building with ChaCC API Platform
+If as a developer you want to start development with ChaCC API Platform, here are things to consider:
 
 Clone project from the repository:
 ```
-git clone github.com/jonas1015/adcore-api
+git clone github.com/jonas1015/chacc-api
 ```
 
 create virtual environment:
@@ -34,7 +34,7 @@ pip3 install -r requirements-dev.txt
 
 ## Startup & Deployment Guide
 
-AdCore API provides multiple startup options optimized for different environments and use cases. Choose the right method based on your deployment scenario.
+ChaCC API provides multiple startup options optimized for different environments and use cases. Choose the right method based on your deployment scenario.
 
 ### 🚀 **Recommended Startup Methods**
 
@@ -109,7 +109,7 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p .adcore_cache .modules_loaded .modules_upload modules_installed
+RUN mkdir -p .chacc_cache .modules_loaded .modules_upload modules_installed
 
 # Expose port
 EXPOSE 8080
@@ -122,13 +122,13 @@ CMD ["python", "start_server.py"]
 ```yaml
 version: '3.8'
 services:
-  adcore-api:
+  chacc-api:
     build: .
     ports:
       - "8080:8080"
     volumes:
       - .:/app
-      - .adcore_cache:/app/.adcore_cache
+      - .chacc_cache:/app/.chacc_cache
     environment:
       - DATABASE_URL=postgresql://...
     command: python start_server.py
@@ -162,7 +162,7 @@ jobs:
       - name: Build and test modules
         run: |
           # Build test module
-          python -m adcore_cli build tests/test_module
+          python -m chacc_cli build tests/test_module
 
   deploy:
     needs: test
@@ -171,7 +171,7 @@ jobs:
       - name: Deploy to production
         run: |
           # Your deployment commands
-          echo "Deploying AdCore API..."
+          echo "Deploying ChaCC API..."
 ```
 
 #### **GitLab CI Example**
@@ -184,7 +184,7 @@ test:
   stage: test
   script:
     - python tests/run_tests_safely.py
-    - python -m adcore_cli build tests/test_module
+    - python -m chacc_cli build tests/test_module
 
 deploy:
   stage: deploy
@@ -256,7 +256,7 @@ python start_server.py
 NO_RELOAD=1 python uvicorn_config.py
 
 # Solution 3: Clear cache
-rm -rf .adcore_cache/
+rm -rf .chacc_cache/
 python start_server.py
 ```
 
@@ -280,7 +280,7 @@ python start_server.py
 ```bash
 # Ensure proper permissions
 chmod +x start_server.py
-mkdir -p .adcore_cache .modules_loaded .modules_upload
+mkdir -p .chacc_cache .modules_loaded .modules_upload
 ```
 
 ### 📊 **Performance Comparison**
@@ -296,7 +296,7 @@ mkdir -p .adcore_cache .modules_loaded .modules_upload
 ```bash
 # 1. Setup
 git clone <repository>
-cd adcore-api
+cd chacc-api
 python -m venv .venv
 source .venv/bin/activate  # Linux/Mac
 pip install -r requirements-dev.txt
@@ -320,7 +320,7 @@ python tests/run_tests_safely.py
 - **File Permissions**: Ensure proper permissions on cache directories
 - **Network Security**: Configure firewall rules appropriately
 
-This comprehensive startup system ensures AdCore API works reliably across all environments while providing the best developer experience possible! 🎉
+This comprehensive startup system ensures ChaCC API works reliably across all environments while providing the best developer experience possible! 🎉
 
 ### Automatic Database Migrations
 
@@ -336,29 +336,29 @@ As a module developer, you do not need to create or run manual migration scripts
 
 Here is an example:
 ```python
-from src.database import AdCoreBaseModel, register_model
+from src.database import ChaCCBaseModel, register_model
 
 @register_model
-class MyNewModel(AdCoreBaseModel):
+class MyNewModel(ChaCCBaseModel):
     # ... your columns here
 ```
 
-By adding this decorator, you are telling the AdCore API platform to include your model in its schema management. When the application restarts, it will automatically add or update the table for `MyNewModel` in the database.
+By adding this decorator, you are telling the ChaCC API platform to include your model in its schema management. When the application restarts, it will automatically add or update the table for `MyNewModel` in the database.
 
 **Warning:**
 
 This is a powerful feature that directly modifies the database based on the loaded code. The user deploying a module is fully responsible for any data loss that may occur as a result of model changes. The platform provides the capability, but the responsibility for the data lies with the user.
 
-### Creating modules with AdCore API Command Line Tool (adcore_cli)
+### Creating modules with ChaCC API Command Line Tool (chacc_cli)
 
-The AdCore CLI has been refactored for better maintainability. Commands are now organized in separate modules:
+The ChaCC CLI has been refactored for better maintainability. Commands are now organized in separate modules:
 
-- **CLI Entry Point**: `adcore_cli/__main__.py` - Command argument parsing
-- **Command Implementations**: `adcore_cli/commands.py` - Core functionality
+- **CLI Entry Point**: `chacc_cli/__main__.py` - Command argument parsing
+- **Command Implementations**: `chacc_cli/commands.py` - Core functionality
 
-To create a new module with AdCore Command Line Tool you will need to run this command inside the project root folder:
+To create a new module with ChaCC Command Line Tool you will need to run this command inside the project root folder:
 ```
-python3 -m adcore_cli create module_name
+python3 -m chacc_cli create module_name
 ```
 
 This will be created inside `plugins/{module_name}` inside the project root folder with a complete testing architecture.
@@ -408,7 +408,7 @@ asyncio.run(run_module_tests())
 
 To build this module run:
 ```
-python3 -m adcore_cli build path/to/module_name
+python3 -m chacc_cli build path/to/module_name
 ```
 
 for the case of default path it should be `plugins/{module_name}`
@@ -416,34 +416,34 @@ for the case of default path it should be `plugins/{module_name}`
 #### **Deploy a Module to Remote Server**
 ```bash
 # Set deployment configuration in .env file
-echo "ADCORE_DEPLOY_URL=http://your-api-server.com" >> .env
-echo "ADCORE_DEPLOY_API_KEY=your-optional-api-key" >> .env
+echo "CHACC_DEPLOY_URL=http://your-api-server.com" >> .env
+echo "CHACC_DEPLOY_API_KEY=your-optional-api-key" >> .env
 
 # Deploy the built module
-python3 -m adcore_cli deploy your_module.adcore
+python3 -m chacc_cli deploy your_module.chacc
 ```
 
 **Deployment Configuration:**
-- `ADCORE_DEPLOY_URL`: URL of your remote AdCore API server
-- `ADCORE_DEPLOY_API_KEY`: Optional API key for authentication
-- `ADCORE_DEPLOY_TIMEOUT`: Request timeout in seconds (default: 30)
+- `CHACC_DEPLOY_URL`: URL of your remote ChaCC API server
+- `CHACC_DEPLOY_API_KEY`: Optional API key for authentication
+- `CHACC_DEPLOY_TIMEOUT`: Request timeout in seconds (default: 30)
 
 **Deployment Process:**
 1. CLI reads configuration from `.env` file
-2. Uploads the `.adcore` file to remote `/modules/` endpoint
+2. Uploads the `.chacc` file to remote `/modules/` endpoint
 3. Remote server installs and enables the module
 4. **Server restart required** to activate the module
 
 **Example Workflow:**
 ```bash
 # 1. Create and develop module
-python -m adcore_cli create my_feature
+python -m chacc_cli create my_feature
 
 # 2. Build the module
-python -m adcore_cli build plugins/my_feature
+python -m chacc_cli build plugins/my_feature
 
 # 3. Deploy to remote server
-python -m adcore_cli deploy my_feature.adcore
+python -m chacc_cli deploy my_feature.chacc
 
 # 4. Restart remote server
 # (Server restart activates the new module)
@@ -452,18 +452,18 @@ python -m adcore_cli deploy my_feature.adcore
 **Complete Development Workflow:**
 ```bash
 # Local development
-python -m adcore_cli create authentication
+python -m chacc_cli create authentication
 # Edit plugins/authentication/module/main.py
-python -m adcore_cli build plugins/authentication
+python -m chacc_cli build plugins/authentication
 
 # Remote deployment
-python -m adcore_cli deploy authentication.adcore
+python -m chacc_cli deploy authentication.chacc
 # Restart remote server
 ```
 
 ### Dependency Management
 
-The AdCore API platform uses a centralized dependency management system to ensure a stable and consistent environment. When a module is installed, enabled, or disabled, the platform re-resolves all dependencies from the backbone and every enabled module to create a single, unified `compiled_requirements.lock` file. This file is then used to install all necessary packages into the environment.
+The ChaCC API platform uses a centralized dependency management system to ensure a stable and consistent environment. When a module is installed, enabled, or disabled, the platform re-resolves all dependencies from the backbone and every enabled module to create a single, unified `compiled_requirements.lock` file. This file is then used to install all necessary packages into the environment.
 
 **How it Works:**
 
@@ -475,7 +475,7 @@ The AdCore API platform uses a centralized dependency management system to ensur
 
 *   **Specify Dependencies:** Always declare your module's dependencies in its `requirements.txt` file.
 *   **Be Flexible with Versions:** Whenever possible, avoid pinning exact dependency versions (e.g., `requests==2.25.1`). Instead, use flexible version specifiers (e.g., `requests>=2.25.0`) to allow the resolver to find a compatible version that satisfies all modules.
-*   **Test for Conflicts:** Before releasing your module, test it with the AdCore backbone to ensure that your dependencies do not conflict with the core dependencies or those of other common modules.
+*   **Test for Conflicts:** Before releasing your module, test it with the ChaCC backbone to ensure that your dependencies do not conflict with the core dependencies or those of other common modules.
 
 **Consequences of Version Conflicts:**
 
@@ -483,7 +483,7 @@ If your module requires a specific version of a dependency that conflicts with t
 
 ### Incremental Dependency Caching System
 
-The AdCore API platform implements an advanced **incremental dependency caching system** that resolves dependencies intelligently and efficiently.
+The ChaCC API platform implements an advanced **incremental dependency caching system** that resolves dependencies intelligently and efficiently.
 
 **How It Works:**
 
@@ -503,7 +503,7 @@ The AdCore API platform implements an advanced **incremental dependency caching 
 **Cache Architecture:**
 
 ```
-.adcore_cache/
+.chacc_cache/
 ├── dependency_cache.json          # Main dependency cache
 ├── compiled_requirements.lock     # Compiled requirements file
 └── pytest/                        # Pytest cache directory
@@ -561,19 +561,19 @@ INFO: Dependency cache updated with incremental changes
 
 ```bash
 # Clear entire cache (forces full resolution)
-rm -rf .adcore_cache/
+rm -rf .chacc_cache/
 
 # Clear only dependency cache (keeps pytest cache)
-rm .adcore_cache/dependency_cache.json
+rm .chacc_cache/dependency_cache.json
 
 # Clear specific module cache (forces re-resolution of that module)
 # Edit the JSON file to remove specific module from module_caches
 
 # View cache contents
-cat .adcore_cache/dependency_cache.json | jq
+cat .chacc_cache/dependency_cache.json | jq
 
 # View cache directory structure
-tree .adcore_cache/
+tree .chacc_cache/
 ```
 
 **Benefits for Module Developers:**
@@ -591,11 +591,11 @@ tree .adcore_cache/
 - **Error Recovery:** Graceful fallback if cache is corrupted
 - **Logging:** Detailed logs for debugging resolution issues
 
-This caching system ensures that AdCore API maintains excellent performance while providing the reliability and consistency that enterprise applications require.
+This caching system ensures that ChaCC API maintains excellent performance while providing the reliability and consistency that enterprise applications require.
 
 ## Testing Architecture
 
-The AdCore API platform implements a comprehensive testing strategy with different types of tests that serve different purposes. Tests are automatically categorized and executed at appropriate times to ensure system stability and reliability.
+The ChaCC API platform implements a comprehensive testing strategy with different types of tests that serve different purposes. Tests are automatically categorized and executed at appropriate times to ensure system stability and reliability.
 
 ### Test Categories
 
@@ -804,10 +804,10 @@ uvicorn main:app --reload=false
 rm -rf .modules_loaded/test_module*
 
 # Clear test cache
-rm -rf .adcore_cache/pytest/
+rm -rf .chacc_cache/pytest/
 
 # Clear all cache (nuclear option)
-rm -rf .adcore_cache/
+rm -rf .chacc_cache/
 
 # Or use safe runner (automatic cleanup)
 python tests/run_tests_safely.py
@@ -849,17 +849,17 @@ uvicorn main:app --reload
 **Prevention:**
 - Use `python start_server.py` for the most reliable experience
 - Use `python uvicorn_config.py` for development with selective auto-reload
-- Cache files are stored in `.adcore_cache/` (excluded from watching)
+- Cache files are stored in `.chacc_cache/` (excluded from watching)
 - VSCode settings exclude problematic directories from file watching
 - Only backbone tests run automatically (safe for auto-reload)
 
-This testing architecture ensures that AdCore API maintains high quality and reliability while providing flexibility for module developers to implement comprehensive testing for their components.
+This testing architecture ensures that ChaCC API maintains high quality and reliability while providing flexibility for module developers to implement comprehensive testing for their components.
 
 ## Standalone Components
 
 ### Dependency Manager Module
 
-The AdCore API platform includes a sophisticated dependency management system that can be used as a standalone component. Located in `src/dependency_manager.py`, this module provides intelligent dependency resolution for modular Python applications.
+The ChaCC API platform includes a sophisticated dependency management system that can be used as a standalone component. Located in `src/package/dependency_manager.py`, this module provides intelligent dependency resolution for modular Python applications.
 
 **Key Features:**
 - Incremental dependency resolution with caching
@@ -870,7 +870,7 @@ The AdCore API platform includes a sophisticated dependency management system th
 
 **Usage as Standalone Component:**
 ```python
-from src.dependency_manager import DependencyManager
+from src.package.dependency_manager import DependencyManager
 
 dm = DependencyManager()
 await dm.resolve_dependencies()
@@ -880,8 +880,8 @@ await dm.resolve_dependencies()
 - `DependencyManager`: Main class for dependency resolution and caching
 - Helper functions: `calculate_module_hash()`, `load_dependency_cache()`, etc.
 
-**Documentation:** See `src/dependency_manager_readme.md` for complete API documentation and usage examples.
+**Documentation:** See `src/package/README.md` for complete API documentation and usage examples.
 
 **Architecture:** The dependency manager is designed with clean separation of concerns, making it suitable for extraction into a separate package if needed for other projects.
 
-This modular architecture allows AdCore API to provide enterprise-grade features while maintaining clean separation of concerns and reusability.
+This modular architecture allows ChaCC API to provide enterprise-grade features while maintaining clean separation of concerns and reusability.

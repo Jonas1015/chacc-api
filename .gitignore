@@ -1,20 +1,5 @@
-.vscode/
-
-*.log
-*.pot
-*.pyc
-__pycache__/
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-media
-
-# If your build process includes running collectstatic, then you probably don't need or want to include staticfiles/
-# in your Git repository. Update and uncomment the following line accordingly.
-# <django-project-name>/staticfiles/
-
-### Django.Python Stack ###
 # Byte-compiled / optimized / DLL files
+__pycache__/
 *.py[cod]
 *$py.class
 
@@ -27,7 +12,7 @@ build/
 develop-eggs/
 dist/
 downloads/
-eggs/ 
+eggs/
 .eggs/
 lib/
 lib64/
@@ -65,12 +50,16 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
-pytestdebug.log
 
 # Translations
 *.mo
+*.pot
 
 # Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
 
 # Flask stuff:
 instance/
@@ -81,7 +70,6 @@ instance/
 
 # Sphinx documentation
 docs/_build/
-doc/_build/
 
 # PyBuilder
 target/
@@ -121,7 +109,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-pythonenv*
 
 # Spyder project settings
 .spyderproject
@@ -141,19 +128,20 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# pytype static type analyzer
-.pytype/
-
-# profiling data
-.prof
-
-.modules_installed/
-modules_installed/
-.modules_upload/
-modules
-modules_loaded
+# Dependency manager cache
+.dependency_cache/
+.chacc_cache/
+plugins
+modules_installed
 .modules_loaded
-.adcore_cache/
-*.adcore
-*.db
-plugins/
+.modules_upload
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -135,6 +135,7 @@ plugins
 modules_installed
 .modules_loaded
 .modules_upload
+*.chacc
 
 # IDE
 .vscode/

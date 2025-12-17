@@ -21,7 +21,7 @@ LOGGER_NAME = "chacc-api"
 # This ensures that only the level name is colored, and the rest remains in the
 # default terminal color.
 LOG_FORMAT_DEFAULT = "%(log_color)s%(levelname)s%(reset)s:     %(asctime)s - %(name)s - %(message)s"
-LOG_FORMAT_DEBUG = "%(log_color)s%(levelname)s%(reset)s %(asctime)s:%(message)s:%(pathname)s:%(funcName)s:%(lineno)d"
+LOG_FORMAT_DEBUG = "%(log_color)s%(levelname)s%(reset)s %(asctime)s - %(name)s - %(message)s"
 
 
 os.makedirs(MODULES_INSTALLED_DIR, exist_ok=True)

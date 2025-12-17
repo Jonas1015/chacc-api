@@ -293,6 +293,25 @@ mkdir -p .chacc_cache .modules_loaded .modules_upload
 
 ### 🎯 **Quick Start Guide**
 
+#### **Option A: Deploy ChaCC API Backbone (No Modules)**
+```bash
+# 1. Setup
+git clone <repository>
+cd chacc-api
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+pip install -r requirements.txt
+
+# 2. Run backbone only
+python start_server.py
+
+# 3. Access at http://localhost:8080
+# - API docs: /docs
+# - Module management: /modules/
+# - Ready to accept module deployments
+```
+
+#### **Option B: Full Development Environment**
 ```bash
 # 1. Setup
 git clone <repository>
@@ -301,16 +320,37 @@ python -m venv .venv
 source .venv/bin/activate  # Linux/Mac
 pip install -r requirements-dev.txt
 
-# 2. Development
-python start_server.py    # 🚀 Recommended
-# or
-python uvicorn_config.py   # Alternative
+# 2. Create and develop modules
+python -m chacc_cli create my_module
+cd plugins/my_module
+python module/run_tests.py setup
+python module/run_tests.py standalone  # Develop at localhost:8000
 
-# 3. Production
-python start_server.py    # Always use this
+# 3. Production deployment
+python start_server.py  # Backbone + all modules
+```
 
-# 4. Testing
-python tests/run_tests_safely.py
+#### **Option C: Module-Only Development**
+```bash
+# 1. Setup
+git clone <repository>
+cd chacc-api
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+pip install -r requirements-dev.txt
+
+# 2. Develop specific module
+python -m chacc_cli create my_feature
+cd plugins/my_feature
+python module/run_tests.py setup
+python module/run_tests.py standalone  # Isolated development
+
+# 3. Test module
+python module/run_tests.py test
+
+# 4. Deploy module to running backbone
+python -m chacc_cli build plugins/my_feature
+python -m chacc_cli deploy my_feature.chacc
 ```
 
 ### 🔒 **Security Considerations**
@@ -321,6 +361,190 @@ python tests/run_tests_safely.py
 - **Network Security**: Configure firewall rules appropriately
 
 This comprehensive startup system ensures ChaCC API works reliably across all environments while providing the best developer experience possible! 🎉
+
+## 📦 **Deployment Scenarios**
+
+ChaCC API supports multiple deployment patterns based on your needs:
+
+### **1. Backbone-Only Deployment (No Modules)**
+
+**Use Case**: Deploy the core ChaCC API platform ready to accept module deployments.
+
+```bash
+# Deploy backbone only
+python start_server.py
+
+# Features available:
+# - API documentation (/docs)
+# - Module management API (/modules/)
+# - Module upload endpoint (POST /modules/)
+# - Health checks
+# - Ready for module deployments
+```
+
+**Benefits**:
+- Minimal footprint
+- Secure module acceptance
+- Production-ready immediately
+- Add modules dynamically via API
+
+### **2. Full Platform Deployment (Backbone + Modules)**
+
+**Use Case**: Deploy complete application with pre-installed modules.
+
+```bash
+# Deploy with all modules in plugins/
+python start_server.py
+
+# All modules in plugins/ are automatically loaded
+# Module APIs available at their configured paths
+```
+
+**Benefits**:
+- Complete application deployment
+- All features available immediately
+- Suitable for monolithic deployments
+
+### **3. Module Development Environment**
+
+**Use Case**: Develop modules with full ChaCC integration.
+
+```bash
+# Create new module
+python -m chacc_cli create my_module
+
+# Isolated development
+cd plugins/my_module
+python module/run_tests.py standalone  # ChaCC Server at localhost:8000
+
+# Test in isolation
+python module/run_tests.py test
+
+# Deploy to running backbone
+python -m chacc_cli build plugins/my_module
+python -m chacc_cli deploy my_module.chacc
+```
+
+**Benefits**:
+- Real BackboneContext during development
+- Hot reload capabilities
+- Isolated testing
+- Production-equivalent environment
+
+## 🔄 **Development Workflows**
+
+### **Workflow A: Backbone-First Development**
+```
+1. Deploy ChaCC backbone → Accept module deployments via API
+2. Develop modules separately → Deploy as .chacc packages
+3. Dynamic module management → Enable/disable via API
+```
+
+### **Workflow B: Monolithic Development**
+```
+1. Develop modules in plugins/ directory
+2. Test with ChaCC Server during development
+3. Deploy complete application with all modules
+```
+
+### **Workflow C: Module-Only Development**
+```
+1. Use ChaCC Server for isolated module development
+2. Build and deploy modules to existing backbones
+3. Focus on module functionality without backbone concerns
+```
+
+## 🏗️ **Architecture Overview**
+
+```
+ChaCC API Platform
+├── Core Backbone (main.py)
+│   ├── FastAPI Application
+│   ├── Module Management System
+│   ├── Database Layer
+│   ├── Service Registry
+│   └── API Documentation
+├── ChaCC Server (chacc_server/)
+│   ├── Development Server
+│   ├── Hot Reload
+│   ├── Module Auto-loading
+│   └── Real BackboneContext
+├── CLI Tools (chacc_cli/)
+│   ├── Module Scaffolding
+│   ├── Build System
+│   ├── Deployment Tools
+│   └── Development Helpers
+└── Modules (plugins/)
+    ├── Isolated Development
+    ├── Real Integration Testing
+    ├── Hot Reload Support
+    └── Production Packaging
+```
+
+## 🎯 **Choosing the Right Approach**
+
+| Scenario | Recommended Approach | Commands |
+|----------|---------------------|----------|
+| **New to ChaCC** | Backbone-only deployment | `python start_server.py` |
+| **Building modules** | ChaCC Server development | `python module/run_tests.py standalone` |
+| **Enterprise deployment** | Full platform | `python start_server.py` |
+| **Microservices** | Module-only development | ChaCC Server + API deployment |
+| **CI/CD** | Automated builds | CLI commands in pipelines |
+
+## 🚀 **Getting Started - Step by Step**
+
+### **For Beginners: Try ChaCC Backbone**
+```bash
+# 1. Clone and setup
+git clone <repository>
+cd chacc-api
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
+# 2. Run backbone
+python start_server.py
+
+# 3. Explore API at http://localhost:8080/docs
+# 4. Upload sample modules via /modules/ endpoint
+```
+
+### **For Developers: Build Your First Module**
+```bash
+# 1. Setup development environment
+git clone <repository>
+cd chacc-api
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+
+# 2. Create your module
+python -m chacc_cli create hello_world
+
+# 3. Develop with live reload
+cd plugins/hello_world
+python module/run_tests.py setup
+python module/run_tests.py standalone
+
+# 4. Edit code, see changes instantly at localhost:8000
+```
+
+### **For Teams: Enterprise Setup**
+```bash
+# 1. Deploy backbone to server
+git clone <repository>
+cd chacc-api
+pip install -r requirements.txt
+python start_server.py  # Runs on port 8080
+
+# 2. Team members develop modules
+python -m chacc_cli create user_management
+# Develop, test, build, deploy to running backbone
+
+# 3. Dynamic module management
+# Enable/disable modules via API
+# Update modules without server restart (for compatible changes)
+```
+
+This flexible architecture supports everything from simple API backends to complex modular enterprise applications! 🎉
 
 ### Automatic Database Migrations
 
@@ -349,62 +573,144 @@ By adding this decorator, you are telling the ChaCC API platform to include your
 
 This is a powerful feature that directly modifies the database based on the loaded code. The user deploying a module is fully responsible for any data loss that may occur as a result of model changes. The platform provides the capability, but the responsibility for the data lies with the user.
 
+### Development Server - Using Existing Infrastructure
+
+ChaCC API uses the existing **main.py application** as a development server that provides real BackboneContext for module development. The CLI provides a `server` command to run it with development-friendly settings.
+
+#### **Why Use the Development Server?**
+
+**Before (Problems):**
+- Modules developed with mocked BackboneContext
+- Context differences between development and production
+- Inter-module communication impossible during development
+- Database and service access limitations
+
+**After (Development Server):**
+- Real BackboneContext from existing main.py
+- Production-equivalent development environment
+- Actual inter-module service sharing
+- Hot reload for fast development cycles
+
+#### **Quick Start with Development Server**
+
+```bash
+# 1. Create a new module
+python -m chacc_cli create my_module
+
+# 2. Setup development environment
+cd plugins/my_module
+python module/run_tests.py setup
+
+# 3. Start development server
+python module/run_tests.py standalone
+
+# 4. Develop with hot reload at http://localhost:8000/my-module
+```
+
+#### **Development Server Features**
+
+- **Real Environment**: Uses existing main.py with full BackboneContext
+- **Hot Reload**: Automatic reloading when module files change
+- **Multi-Module**: Loads all modules from plugins directory
+- **Service Sharing**: Actual inter-module communication via real service registry
+- **Database Access**: Real database connections and migrations
+- **Production Parity**: Development environment matches production exactly
+
+#### **Development Workflow**
+
+```bash
+# Terminal 1: Start Development Server
+cd plugins/my_module
+python module/run_tests.py standalone
+
+# Terminal 2: Run tests
+python module/run_tests.py test
+
+# Terminal 3: Edit code (hot reload enabled)
+# Changes automatically reload in Terminal 1
+```
+
 ### Creating modules with ChaCC API Command Line Tool (chacc_cli)
 
-The ChaCC CLI has been refactored for better maintainability. Commands are now organized in separate modules:
+The ChaCC CLI provides comprehensive module development tools. Commands are organized in separate modules:
 
 - **CLI Entry Point**: `chacc_cli/__main__.py` - Command argument parsing
 - **Command Implementations**: `chacc_cli/commands.py` - Core functionality
+- **Server Commands**: Development server using existing main.py infrastructure
 
 To create a new module with ChaCC Command Line Tool you will need to run this command inside the project root folder:
 ```
 python3 -m chacc_cli create module_name
 ```
 
-This will be created inside `plugins/{module_name}` inside the project root folder with a complete testing architecture.
+This creates a complete module in `plugins/{module_name}` with full development infrastructure.
 
 #### **Generated Module Structure**
 ```
 plugins/your_module/
-├── module_meta.json          # Module metadata with test_entry_point
+├── module_meta.json          # Module metadata
+├── README.md                 # Module documentation
 ├── requirements.txt          # Module dependencies
 └── module/
     ├── __init__.py
-    ├── main.py              # Main module code with router setup
+    ├── main.py              # Module setup with context factory
+    ├── models.py            # Database models and schemas
+    ├── routes.py            # API endpoints
+    ├── auth.py              # Authentication utilities (if needed)
+    ├── dev_context.py       # Legacy dev context (for compatibility)
+    ├── context_factory.py   # Environment-aware context provider
+    ├── run_tests.py         # Development tools and ChaCC Server launcher
     └── tests/
         ├── __init__.py
-        └── test_module.py   # Comprehensive test suite
+        └── test_module.py   # Isolated unit tests
 ```
 
-#### **Built-in Testing Features**
+#### **Built-in Development Features**
 Every generated module includes:
-- **Test Infrastructure**: Complete testing setup ready to use
-- **Test Entry Point**: Configured in `module_meta.json` for manual testing
-- **Test Fixtures**: Pre-configured client and context fixtures
-- **Test Runner**: `run_module_tests()` function for developer-controlled testing
-- **Test Templates**: Ready-to-use test examples and comprehensive test suite
+- **ChaCC Server Integration**: Real development environment
+- **Context Factory**: Automatic environment detection
+- **Hot Reload**: Fast development cycles
+- **Isolated Testing**: Database fixtures for unit tests
+- **Multi-Environment**: Development, testing, production support
+- **Service Registration**: Ready for inter-module communication
 
-#### **Module Test Configuration**
+#### **Module Configuration**
 ```json
 {
   "name": "your_module",
   "entry_point": "main:setup_plugin",
-  "test_entry_point": "tests.test_module:run_module_tests",
   "base_path_prefix": "/your-module"
 }
 ```
 
-#### **Running Module Tests**
-```python
-# Module tests are developer responsibility - run manually:
-cd plugins/your_module
-python -m pytest module/tests/
+#### **Development Commands**
+```bash
+# Setup virtual environment
+python module/run_tests.py setup
 
-# Or use the module's test runner:
-from module.tests.test_module import run_module_tests
-import asyncio
-asyncio.run(run_module_tests())
+# Run isolated unit tests
+python module/run_tests.py test
+
+# Start ChaCC development server
+python module/run_tests.py standalone
+
+# Build for production
+python -m chacc_cli build plugins/your_module
+
+# Deploy to remote server
+python -m chacc_cli deploy your_module.chacc
 ```
+
+#### **Development Server vs Traditional Development**
+
+| Feature | Old Approach | Development Server |
+|---------|--------------|-------------------|
+| Context | Mocked | Real BackboneContext |
+| Services | Simulated | Actual service sharing |
+| Database | In-memory | Real connections |
+| Inter-module | Impossible | Full communication |
+| Production match | Low | 100% identical |
+| Development speed | Fast | Fast with hot reload |
 
 To build this module run:
 ```
@@ -412,6 +718,28 @@ python3 -m chacc_cli build path/to/module_name
 ```
 
 for the case of default path it should be `plugins/{module_name}`
+
+#### **Development Server Commands**
+
+```bash
+# Start development server with auto-reload
+python -m chacc_cli server --debug --auto-reload
+
+# Start with specific modules directory
+python -m chacc_cli server --modules-dir ./plugins --host 127.0.0.1 --port 3000
+
+# Production server (no debug/auto-reload)
+python -m chacc_cli server --modules-dir /path/to/modules
+```
+
+**Development Server Options:**
+- `--modules-dir`: Directory containing modules (default: `plugins/`)
+- `--host`: Server host (default: `0.0.0.0`)
+- `--port`: Server port (default: `8000`)
+- `--debug`: Enable debug mode
+- `--auto-reload`: Enable hot reload for development
+
+**Note**: This uses the existing `main.py` application with uvicorn, providing the same real BackboneContext as production.
 
 #### **Deploy a Module to Remote Server**
 ```bash
@@ -439,37 +767,57 @@ python3 -m chacc_cli deploy your_module.chacc
 # 1. Create and develop module
 python -m chacc_cli create my_feature
 
-# 2. Build the module
+# 2. Setup development
+cd plugins/my_feature && python module/run_tests.py setup
+
+# 3. Develop with ChaCC Server
+python module/run_tests.py standalone
+
+# 4. Build the module
 python -m chacc_cli build plugins/my_feature
 
-# 3. Deploy to remote server
+# 5. Deploy to remote server
 python -m chacc_cli deploy my_feature.chacc
 
-# 4. Restart remote server
+# 6. Restart remote server
 # (Server restart activates the new module)
 ```
 
 **Complete Development Workflow:**
 ```bash
-# Local development
+# Local development with ChaCC Server
 python -m chacc_cli create authentication
-# Edit plugins/authentication/module/main.py
-python -m chacc_cli build plugins/authentication
+cd plugins/authentication
+python module/run_tests.py setup
+python module/run_tests.py standalone  # Develop at http://localhost:8000
 
-# Remote deployment
+# Testing
+python module/run_tests.py test
+
+# Production deployment
+python -m chacc_cli build plugins/authentication
 python -m chacc_cli deploy authentication.chacc
 # Restart remote server
 ```
 
 ### Dependency Management
 
-The ChaCC API platform uses a centralized dependency management system to ensure a stable and consistent environment. When a module is installed, enabled, or disabled, the platform re-resolves all dependencies from the backbone and every enabled module to create a single, unified `compiled_requirements.lock` file. This file is then used to install all necessary packages into the environment.
+The ChaCC API platform uses a centralized dependency management system to ensure a stable and consistent environment. **Dependencies are resolved BEFORE module loading** to prevent inconsistent states.
+
+**Key Improvement**: Unlike traditional systems that load modules first and resolve dependencies later, ChaCC resolves all dependencies upfront. This ensures that if dependency resolution fails, modules are never left in a partially-loaded or broken state.
+
+When a module is installed, enabled, or disabled, the platform:
+1. **Collects requirements** from all .chacc files BEFORE unzipping
+2. **Resolves dependencies** using pip-tools to create a unified `compiled_requirements.lock`
+3. **Only then unzips and loads** modules if dependencies resolve successfully
+4. **Installs packages** into the environment
 
 **How it Works:**
 
-1.  **Requirement Gathering:** The system collects the `requirements.txt` file from the backbone core and from each enabled module.
-2.  **Dependency Resolution:** It uses `pip-tools` to compile all collected requirements into a single, deterministic `compiled_requirements.lock` file. This process identifies and resolves all transient dependencies, ensuring that a single, compatible version of each package is selected.
-3.  **Installation:** The locked dependencies are then installed into the environment using `pip`.
+1.  **Pre-Loading Collection:** Before any modules are unzipped, the system reads `requirements.txt` directly from .chacc archives
+2.  **Dependency Resolution:** Uses `pip-tools` to resolve all requirements into a single `compiled_requirements.lock` file BEFORE module loading
+3.  **Safe Loading:** Only if dependencies resolve successfully are modules unzipped and loaded
+4.  **Installation:** Packages are installed into the environment with guaranteed compatibility
 
 **Best Practices for Module Developers:**
 

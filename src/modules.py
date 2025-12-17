@@ -88,58 +88,114 @@ async def run_module_tests(module_name: str, module_path: str, test_entry_point:
             sys.path.remove(test_code_dir)
 
 
+async def collect_module_requirements():
+    """
+    Collect requirements from all .chacc files BEFORE unzipping.
+    Returns a dict of module_name -> requirements_content
+    """
+    modules_requirements = {}
+
+    backbone_req_path = os.path.join(os.path.dirname(__file__), '..', 'requirements.txt')
+    if os.path.exists(backbone_req_path):
+        with open(backbone_req_path, 'r') as f:
+            modules_requirements['backbone'] = f.read()
+
+    installed_chacc_files = {f for f in os.listdir(MODULES_INSTALLED_DIR) if f.endswith('.chacc')}
+
+    for chacc_filename in installed_chacc_files:
+        module_name = chacc_filename.replace('.chacc', '')
+        chacc_filepath = os.path.join(MODULES_INSTALLED_DIR, chacc_filename)
+
+        try:
+            with zipfile.ZipFile(chacc_filepath, 'r') as zip_ref:
+                try:
+                    with zip_ref.open('requirements.txt') as req_file:
+                        req_content = req_file.read().decode('utf-8')
+                        modules_requirements[module_name] = req_content
+                except KeyError:
+                    chacc_logger.warning(f"No requirements were specified for module {chacc_filename}")
+                    pass
+        except Exception as e:
+            chacc_logger.warning(f"Could not read requirements from {chacc_filename}: {e}")
+
+    return modules_requirements
+
+
 async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_modules: list = None, exclude_modules: list = None):
     """
     Discovers modules from the MODULES_INSTALLED_DIR, synchronizes the database,
-    and then loads enabled modules into the application.
+    resolves dependencies BEFORE loading, and then loads enabled modules into the application.
     """
     chacc_logger.info("Starting module discovery and database synchronization...")
-    
-    re_resolve_required = False
+
     db = await anext(get_db())
-    
+
     try:
         if MODULES_LOADED_DIR not in sys.path:
             sys.path.append(MODULES_LOADED_DIR)
 
         installed_chacc_files = {f for f in os.listdir(MODULES_INSTALLED_DIR) if f.endswith('.chacc')}
         existing_records = {record.name: record for record in db.query(ModuleRecord).all()}
-        
+
+        modules_requirements = await collect_module_requirements()
+        enabled_modules = [r.name for r in existing_records.values() if r.is_enabled]
+
+        enabled_requirements = {}
+        for module_name, reqs in modules_requirements.items():
+            if module_name in enabled_modules or module_name == 'backbone':
+                enabled_requirements[module_name] = reqs
+
+        if enabled_requirements:
+            chacc_logger.info("Ensuring dependencies are resolved for all enabled modules...")
+            try:
+                from chacc import DependencyManager
+                from .constants import DEPENDENCY_CACHE_DIR
+                dm = DependencyManager(cache_dir=DEPENDENCY_CACHE_DIR, logger=chacc_logger)
+                await dm.resolve_dependencies(enabled_requirements)
+            except Exception as e:
+                chacc_logger.error(f"Dependency resolution failed: {e}")
+                chacc_logger.error("Aborting module loading to prevent inconsistent state.")
+                raise RuntimeError(f"Dependency resolution failed: {e}")
+
+        modules_to_process = []
+
         for chacc_filename in installed_chacc_files:
             module_name = chacc_filename.replace('.chacc', '')
             chacc_filepath = os.path.join(MODULES_INSTALLED_DIR, chacc_filename)
             loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
 
             chacc_mtime = os.path.getmtime(chacc_filepath)
-
             is_new_module = module_name not in existing_records
-            
+
             should_unzip = False
             if not os.path.exists(loaded_module_dir):
-                chacc_logger.info(f"New module detected on disk: '{module_name}'.")
+                chacc_logger.info(f"Module detected on disk: '{module_name}'.")
                 should_unzip = True
-                re_resolve_required = True
             else:
                 loaded_mtime = os.path.getmtime(loaded_module_dir)
                 if chacc_mtime > loaded_mtime:
                     chacc_logger.info(f"Module '{module_name}' archive is newer than loaded directory. Unzipping again.")
                     shutil.rmtree(loaded_module_dir)
                     should_unzip = True
-                    re_resolve_required = True
-            
+
             if should_unzip:
-                chacc_logger.info(f"Unzipping module '{module_name}' to '{loaded_module_dir}'...")
-                with zipfile.ZipFile(chacc_filepath, 'r') as zip_ref:
-                    os.makedirs(loaded_module_dir, exist_ok=True)
-                    zip_ref.extractall(loaded_module_dir)
-                    os.utime(loaded_module_dir, (chacc_mtime, chacc_mtime))
-                chacc_logger.info(f"Unzipping for '{module_name}' completed.")
+                modules_to_process.append((module_name, chacc_filepath, chacc_mtime, is_new_module))
+
+        for module_name, chacc_filepath, chacc_mtime, is_new_module in modules_to_process:
+            loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
+
+            chacc_logger.info(f"Unzipping module '{module_name}' to '{loaded_module_dir}'...")
+            with zipfile.ZipFile(chacc_filepath, 'r') as zip_ref:
+                os.makedirs(loaded_module_dir, exist_ok=True)
+                zip_ref.extractall(loaded_module_dir)
+                os.utime(loaded_module_dir, (chacc_mtime, chacc_mtime))
+            chacc_logger.info(f"Unzipping for '{module_name}' completed.")
 
             meta_file_path = os.path.join(loaded_module_dir, "module_meta.json")
             if os.path.exists(meta_file_path):
                 with open(meta_file_path, 'r') as f:
                     meta_data = json.load(f)
-                
+
                 if is_new_module:
                     new_record = ModuleRecord(
                         name=module_name,
@@ -160,7 +216,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                        record.author != meta_data.get("author", record.author) or \
                        record.description != meta_data.get("description", record.description) or \
                        record.base_path_prefix != meta_data.get("base_path_prefix", record.base_path_prefix):
-                        
+
                         record.display_name = meta_data.get("display_name", record.display_name)
                         record.version = meta_data.get("version", record.version)
                         record.author = meta_data.get("author", record.author)
@@ -169,7 +225,6 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                         record.meta_data = meta_data
                         chacc_logger.info(f"Existing module '{module_name}' metadata updated.")
 
-        
         installed_module_names = {f.replace('.chacc', '') for f in installed_chacc_files}
         for module_name, record in list(existing_records.items()):
             if module_name not in installed_module_names:
@@ -178,16 +233,15 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
                 if os.path.exists(loaded_module_dir):
                     shutil.rmtree(loaded_module_dir)
-                re_resolve_required = True
-        
+
         db.commit()
 
         module_found = db.query(ModuleRecord).first()
         if module_found:
             db.refresh(module_found)
-        
+
         chacc_logger.info("Database synchronized with filesystem. Proceeding to load modules...")
-        
+
         query = db.query(ModuleRecord).filter_by(is_enabled=True)
         if only_modules:
             query = query.filter(ModuleRecord.name.in_(only_modules))
@@ -196,23 +250,23 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
             if "authentication" in exclude_modules:
                 chacc_logger.warning("Skipping authentication module during initial module load.")
             query = query.filter(ModuleRecord.name.notin_(exclude_modules))
-        
+
         updated_records = query.all()
 
         for record in updated_records:
             module_name = record.name
             module_path = os.path.join(MODULES_LOADED_DIR, module_name)
-            
+
             if not record.is_enabled:
                 chacc_logger.info(f"Skipping disabled module: {module_name}")
                 continue
-            
+
             if not os.path.isdir(module_path):
                 chacc_logger.error(f"Module '{module_name}' marked as enabled in DB but its directory is missing: {module_path}. Setting it to disabled.")
                 record.is_enabled = False
                 db.commit()
                 continue
-            
+
             try:
                 models_directory = os.path.join(module_path, "module")
                 if os.path.isdir(models_directory):
@@ -221,7 +275,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
 
                 module_meta = record.meta_data if record.meta_data else {}
                 entry_point_str = module_meta.get("entry_point")
-                
+
                 if not entry_point_str or ":" not in entry_point_str:
                     chacc_logger.warning(f"Skipping '{module_name}': Invalid 'entry_point' in DB metadata.")
                     continue
@@ -242,22 +296,35 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 if spec is None:
                     chacc_logger.error(f"Could not create spec for module '{module_name}'.")
                     continue
-                
+
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
-                
+
                 setup_func = getattr(module, func_name, None)
                 if not setup_func or not callable(setup_func):
                     chacc_logger.warning(f"Plugin '{module_name}': Entry point function '{func_name}' not found or not callable after import.")
                     continue
 
-                
+
                 plugin_router = setup_func(backbone_context)
 
                 if plugin_router and isinstance(plugin_router, APIRouter):
                     chacc_logger.info(f"Mounting router for module '{module_name}' at prefix: {record.base_path_prefix}")
-                    app.include_router(plugin_router, prefix=record.base_path_prefix, tags=module_meta.get("tags", [record.display_name]))
+                    
+                    # Configure router with proper OpenAPI metadata for documentation
+                    module_tags = module_meta.get("tags", [record.display_name])
+                    if not isinstance(module_tags, list):
+                        module_tags = [module_tags]
+                    
+                    # Include router in app with proper configuration
+                    app.include_router(
+                        plugin_router,
+                        prefix=record.base_path_prefix,
+                        tags=module_tags
+                    )
+                    
                     chacc_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
+                    chacc_logger.info(f"Module '{module_name}' documentation tags: {module_tags}")
                 else:
                     chacc_logger.warning(f"Plugin '{module_name}': Setup function did not return an APIRouter.")
 
@@ -270,16 +337,9 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
     finally:
         db.close()
         chacc_logger.debug("Database session for module loading closed.")
-    
+
     if MODULES_LOADED_DIR in sys.path:
         sys.path.remove(MODULES_LOADED_DIR)
-
-    if re_resolve_required:
-        chacc_logger.info("Changes detected in module configuration. Re-resolving dependencies.")
-        await re_resolve_dependencies(logger=chacc_logger)
-        chacc_logger.info("Dependencies resolved. A server restart is required to load the new modules.")
-    else:
-        chacc_logger.info("No changes in module configuration detected. Skipping dependency resolution.")
 
     chacc_logger.info("Module loading completed.")
 
@@ -289,6 +349,7 @@ modules_router = APIRouter()
 async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
     Installs a new ChaCC API module from an .chacc package.
+    Resolves dependencies BEFORE unzipping to prevent inconsistent state.
     Requires server restart to activate/deactivate the new module.
     """
     if not file.filename.endswith(".chacc"):
@@ -299,7 +360,7 @@ async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Sessio
         )
 
     file_content = await file.read()
-    
+
     try:
         with zipfile.ZipFile(io.BytesIO(file_content), 'r') as zip_ref:
             try:
@@ -307,15 +368,35 @@ async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Sessio
                     meta_data = json.load(meta_file)
             except KeyError:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing 'module_meta.json' in the .chacc package.")
-            
+
             module_name = meta_data.get("name")
             if not module_name:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'name' field is missing in 'module_meta.json'.")
 
-            target_chacc_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.chacc")
-            with open(target_chacc_path, "wb") as f:
-                f.write(file_content)
-            chacc_logger.info(f"Module archive '{module_name}.chacc' saved to '{target_chacc_path}'.")
+            module_requirements = {}
+            try:
+                with zip_ref.open('requirements.txt') as req_file:
+                    req_content = req_file.read().decode('utf-8')
+                    module_requirements[module_name] = req_content
+            except KeyError:
+                pass
+
+        backbone_req_path = os.path.join(os.path.dirname(__file__), '..', 'requirements.txt')
+        if os.path.exists(backbone_req_path):
+            with open(backbone_req_path, 'r') as f:
+                module_requirements['backbone'] = f.read()
+
+        if module_requirements:
+            chacc_logger.info(f"Resolving dependencies for module '{module_name}' before installation...")
+            from .chacc_dependency_manager import ChaCCDependencyManager
+            dm = ChaCCDependencyManager(logger=chacc_logger)
+            await dm.dm.resolve_dependencies(module_requirements)
+            chacc_logger.info("Dependencies resolved successfully.")
+
+        target_chacc_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.chacc")
+        with open(target_chacc_path, "wb") as f:
+            f.write(file_content)
+        chacc_logger.info(f"Module archive '{module_name}.chacc' saved to '{target_chacc_path}'.")
 
         loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
         if os.path.exists(loaded_module_dir):
@@ -327,10 +408,9 @@ async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Sessio
         chacc_logger.info(f"Successfully unzipped module '{module_name}' to '{loaded_module_dir}'.")
 
         invalidate_module_cache(module_name)
-        await re_resolve_dependencies()
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={"message": f"Module '{module_name}' installed/updated successfully. Please restart the API server to apply changes."}
+            content={"message": f"Module '{module_name}' installed/updated successfully. Dependencies resolved. Please restart the API server to apply changes."}
         )
     except HTTPException as e:
         raise e
@@ -362,7 +442,9 @@ async def get_modules_endpoint(db: Session = Depends(get_db)):
 @modules_router.post("/modules/{module_name}/enable")
 async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)):
     """
-    Marks a module as enabled in the database. Requires server restart to take effect.
+    Marks a module as enabled in the database.
+    Resolves dependencies BEFORE unzipping to prevent inconsistent state.
+    Requires server restart to take effect.
     """
     module_record = db.query(ModuleRecord).filter(ModuleRecord.name == module_name).first()
     if not module_record:
@@ -370,15 +452,46 @@ async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)
 
     if module_record.is_enabled:
         return JSONResponse(content={"message": f"Module '{module_name}' is already enabled."})
-        
+
     chacc_filepath = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.chacc")
-    loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
-    if os.path.exists(chacc_filepath):
-        shutil.rmtree(loaded_module_dir, ignore_errors=True)
+    if not os.path.exists(chacc_filepath):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Module archive not found: {chacc_filepath}")
+
+    module_requirements = {}
+    try:
         with zipfile.ZipFile(chacc_filepath, 'r') as zip_ref:
-            os.makedirs(loaded_module_dir, exist_ok=True)
-            zip_ref.extractall(loaded_module_dir)
-            os.utime(loaded_module_dir, (os.path.getmtime(chacc_filepath), os.path.getmtime(chacc_filepath)))
+            try:
+                with zip_ref.open('requirements.txt') as req_file:
+                    req_content = req_file.read().decode('utf-8')
+                    module_requirements[module_name] = req_content
+            except KeyError:
+                pass
+    except Exception as e:
+        chacc_logger.error(f"Could not read requirements from {module_name}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Could not read module requirements: {e}")
+
+    backbone_req_path = os.path.join(os.path.dirname(__file__), '..', 'requirements.txt')
+    if os.path.exists(backbone_req_path):
+        with open(backbone_req_path, 'r') as f:
+            module_requirements['backbone'] = f.read()
+
+    if module_requirements:
+        chacc_logger.info(f"Resolving dependencies for module '{module_name}' before enabling...")
+        try:
+            from .chacc_dependency_manager import ChaCCDependencyManager
+            dm = ChaCCDependencyManager(logger=chacc_logger)
+            await dm.resolve_dependencies()
+            chacc_logger.info("Dependencies resolved successfully.")
+        except Exception as e:
+            chacc_logger.error(f"Dependency resolution failed: {e}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Dependency resolution failed: {e}")
+
+    loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)
+    shutil.rmtree(loaded_module_dir, ignore_errors=True)
+    with zipfile.ZipFile(chacc_filepath, 'r') as zip_ref:
+        os.makedirs(loaded_module_dir, exist_ok=True)
+        zip_ref.extractall(loaded_module_dir)
+        os.utime(loaded_module_dir, (os.path.getmtime(chacc_filepath), os.path.getmtime(chacc_filepath)))
 
     module_record.is_enabled = True
     db.commit()
@@ -386,11 +499,10 @@ async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)
     chacc_logger.info(f"Module '{module_name}' marked as enabled in DB. Please restart the API server to activate.")
 
     invalidate_module_cache(module_name)
-    await re_resolve_dependencies()
-    
+
     return JSONResponse(
         status_code=status.HTTP_200_OK,
-        content={"message": f"Module '{module_name}' enabled. Please restart the server for changes to take effect."}
+        content={"message": f"Module '{module_name}' enabled. Dependencies resolved. Please restart the server for changes to take effect."}
     )
 
 @modules_router.post("/modules/{module_name}/disable")

@@ -9,7 +9,7 @@ from src.database import ModuleRecord, initialize_database_models, get_db, run_a
 from src.logger import configure_logging, LogLevels
 from src.core_services import BackboneContext
 
-chacc_logger = configure_logging(log_level=LogLevels.INFO)
+chacc_logger = configure_logging(log_level=LogLevels.DEBUG)
 
 
 async def run_backbone_tests():
@@ -123,14 +123,19 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
-app.state.loaded_modules = {} 
+app.state.loaded_modules = {}
 app.state.mounted_routers = {}
 
-@app.get("/")
+@app.get("/",
+         summary="Root Endpoint",
+         description="Welcome endpoint for the ChaCC API Backbone",
+         response_description="Welcome message with documentation link",
+         tags=["Core"])
 async def read_root():
     """
     Root endpoint of the ChaCC API backbone.
+    Returns a welcome message and directs users to the API documentation.
     """
     return {"message": "Welcome to the ChaCC API Backbone! Check /docs for API modules."}
 
-app.include_router(modules_router, tags=["Module Management"])
+app.include_router(modules_router)

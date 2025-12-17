@@ -11,7 +11,7 @@ class LogLevels(StrEnum):
     DEBUG = "DEBUG"
     CRITICAL = "CRITICAL"
 
-def configure_logging(log_level: str = LogLevels.INFO) -> logging.Logger:
+def configure_logging(log_level: str = LogLevels.DEBUG) -> logging.Logger:
     """
     Configures the root logger with colored output for only the log level.
     Returns a logger instance for the backbone.
@@ -27,7 +27,7 @@ def configure_logging(log_level: str = LogLevels.INFO) -> logging.Logger:
         handler.close()
 
     log_colors = {
-        'DEBUG': 'cyan',
+        'DEBUG': 'light_cyan',
         'INFO': 'green',
         'WARNING': 'yellow',
         'ERROR': 'red',

@@ -74,12 +74,26 @@ def initialize_database_models(backbone_context: BackboneContext):
         if enable_audit_fields and enable_audit_fields():
             if not hasattr(model_cls, 'created_at'):
                 backbone_context.logger.info(f"Adding audit fields to {model_cls.__name__}.")
-                setattr(model_cls, 'created_at', Column(DateTime, server_default=func.now(), nullable=False))
-                setattr(model_cls, 'updated_at', Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False))
-                setattr(model_cls, 'deleted_at', Column(DateTime, nullable=True, index=True))
-                setattr(model_cls, 'created_by_id', Column(Integer, ForeignKey('users.id'), nullable=True, index=True))
-                setattr(model_cls, 'updated_by_id', Column(Integer, ForeignKey('users.id'), nullable=True, index=True))
-                setattr(model_cls, 'deleted_by_id', Column(Integer, ForeignKey('users.id'), nullable=True, index=True))
+                created_at_col = Column(DateTime, server_default=func.now(), nullable=False)
+                updated_at_col = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+                deleted_at_col = Column(DateTime, nullable=True, index=True)
+                created_by_id_col = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+                updated_by_id_col = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+                deleted_by_id_col = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+                setattr(model_cls, 'created_at', created_at_col)
+                setattr(model_cls, 'updated_at', updated_at_col)
+                setattr(model_cls, 'deleted_at', deleted_at_col)
+                setattr(model_cls, 'created_by_id', created_by_id_col)
+                setattr(model_cls, 'updated_by_id', updated_by_id_col)
+                setattr(model_cls, 'deleted_by_id', deleted_by_id_col)
+                # Append to the table in metadata
+                table = model_cls.__table__
+                table.append_column(created_at_col)
+                table.append_column(updated_at_col)
+                table.append_column(deleted_at_col)
+                table.append_column(created_by_id_col)
+                table.append_column(updated_by_id_col)
+                table.append_column(deleted_by_id_col)
 
 async def run_automatic_migration():
     """
@@ -104,7 +118,7 @@ async def run_automatic_migration():
 
         for operation_tuple in diff:
             op_type = operation_tuple[0]
-            
+
             if op_type == 'add_table':
                 table = operation_tuple[1]
                 op.create_table(table.name, *table.columns)
@@ -116,7 +130,12 @@ async def run_automatic_migration():
                 chacc_logger.info(f"Applied migration: DROP TABLE '{table.name}'")
 
             elif op_type == 'add_column':
-                table_name, column = operation_tuple[1], operation_tuple[2]
+                if operation_tuple[1] is None:
+                    table_name = operation_tuple[2]
+                    column = operation_tuple[3]
+                else:
+                    table_name = operation_tuple[1]
+                    column = operation_tuple[2]
                 op.add_column(table_name, column)
                 chacc_logger.info(f"Applied migration: ADD COLUMN '{column.name}' to '{table_name}'")
 
@@ -149,7 +168,7 @@ async def run_automatic_migration():
                 fk = operation_tuple[1]
                 op.drop_constraint(fk.name, fk.table.name, type_='foreignkey')
                 chacc_logger.info(f"Applied migration: DROP FOREIGN KEY '{fk.name}'")
-            
+
             elif op_type == 'add_constraint':
                 constraint = operation_tuple[1]
 
@@ -181,7 +200,7 @@ async def run_automatic_migration():
 
                 else:
                     chacc_logger.warning(f"Skipping unknown constraint type: {type(constraint)}")
-            
+
             else:
                 chacc_logger.warning(f"Skipping unknown migration operation: {op_type}")
 

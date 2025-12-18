@@ -133,6 +133,10 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
     """
     Discovers modules from the MODULES_INSTALLED_DIR, synchronizes the database,
     resolves dependencies BEFORE loading, and then loads enabled modules into the application.
+    
+    IMPORTANT: Modules are ONLY installed from .chacc files in the modules_installed directory.
+    No modules are installed from any other directories (e.g., plugins/).
+    Extraction happens only if modules_loaded doesn't contain that module or updates have been made.
     """
     chacc_logger.info("Starting module discovery and database synchronization...")
 
@@ -142,7 +146,15 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
         if MODULES_LOADED_DIR not in sys.path:
             sys.path.append(MODULES_LOADED_DIR)
 
+        chacc_logger.info(f"Scanning for modules in: {MODULES_INSTALLED_DIR}")
+        
+        if not os.path.isdir(MODULES_INSTALLED_DIR):
+            chacc_logger.error(f"Modules installation directory not found: {MODULES_INSTALLED_DIR}")
+            raise RuntimeError(f"Modules installation directory not found: {MODULES_INSTALLED_DIR}")
+        
         installed_chacc_files = {f for f in os.listdir(MODULES_INSTALLED_DIR) if f.endswith('.chacc')}
+        chacc_logger.info(f"Found {len(installed_chacc_files)} .chacc files in modules_installed directory")
+        
         existing_records = {record.name: record for record in db.query(ModuleRecord).all()}
 
         modules_requirements = await collect_module_requirements()
@@ -296,6 +308,12 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 record.is_enabled = False
                 db.commit()
                 continue
+            
+            if not module_path.startswith(MODULES_LOADED_DIR):
+                chacc_logger.error(f"Module '{module_name}' has invalid path: {module_path}. Modules can only be loaded from {MODULES_LOADED_DIR}")
+                record.is_enabled = False
+                db.commit()
+                continue
 
             try:
                 chacc_logger.info(f"Starting to load module '{module_name}' from database")
@@ -304,6 +322,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 chacc_file_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.chacc")
                 if not os.path.exists(chacc_file_path):
                     chacc_logger.error(f"Module '{module_name}' .chacc file not found at {chacc_file_path}. Setting module to disabled.")
+                    chacc_logger.error(f"Modules can only be loaded if they have a corresponding .chacc file in {MODULES_INSTALLED_DIR}")
                     record.is_enabled = False
                     db.commit()
                     continue

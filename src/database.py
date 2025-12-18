@@ -86,7 +86,6 @@ def initialize_database_models(backbone_context: BackboneContext):
                 setattr(model_cls, 'created_by_id', created_by_id_col)
                 setattr(model_cls, 'updated_by_id', updated_by_id_col)
                 setattr(model_cls, 'deleted_by_id', deleted_by_id_col)
-                # Append to the table in metadata
                 table = model_cls.__table__
                 table.append_column(created_at_col)
                 table.append_column(updated_at_col)

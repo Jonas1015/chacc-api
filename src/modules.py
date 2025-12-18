@@ -290,11 +290,32 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 continue
 
             try:
+                chacc_logger.info(f"Starting to load module '{module_name}' from database")
+                chacc_logger.info(f"Module path: {module_path}")
+                
+                chacc_file_path = os.path.join(MODULES_INSTALLED_DIR, f"{module_name}.chacc")
+                if not os.path.exists(chacc_file_path):
+                    chacc_logger.error(f"Module '{module_name}' .chacc file not found at {chacc_file_path}. Setting module to disabled.")
+                    record.is_enabled = False
+                    db.commit()
+                    continue
+                
+                chacc_logger.info(f"Confirmed .chacc file exists: {chacc_file_path}")
+                
+                if not os.path.isdir(module_path):
+                    # TODO: We will have to extract it if not inside loaded directory
+                    chacc_logger.error(f"Module '{module_name}' directory not found at {module_path}. Setting module to disabled.")
+                    record.is_enabled = False
+                    db.commit()
+                    continue
+                
+                chacc_logger.info(f"Confirmed module directory exists: {module_path}")
+                
                 models_directory = os.path.join(module_path, "module")
                 if os.path.isdir(models_directory):
                     sys.path.insert(0, models_directory)
-                    _discover_and_import_models(models_directory, f"modules.{module_name}.module", backbone_context.logger)
-
+                    _discover_and_import_models(models_directory, f"{module_name}.module", backbone_context.logger)
+                
                 module_meta = record.meta_data if record.meta_data else {}
                 entry_point_str = module_meta.get("entry_point")
 
@@ -312,6 +333,8 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                     db.commit()
                     continue
 
+                chacc_logger.info(f"Found entry point file: {plugin_main_file_path}")
+                
                 sys.path.insert(0, plugin_code_dir)
 
                 spec = importlib.util.spec_from_file_location(module_relative_path, plugin_main_file_path)
@@ -327,6 +350,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                     chacc_logger.warning(f"Plugin '{module_name}': Entry point function '{func_name}' not found or not callable after import.")
                     continue
 
+                chacc_logger.info(f"Found setup function: {func_name}")
 
                 plugin_router = setup_func(backbone_context)
 
@@ -347,6 +371,14 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                     
                     chacc_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
                     chacc_logger.info(f"Module '{module_name}' documentation tags: {module_tags}")
+                    
+                    # Log all routes that were mounted
+                    if hasattr(plugin_router, 'routes'):
+                        chacc_logger.info(f"Module '{module_name}' routes mounted:")
+                        for route in plugin_router.routes:
+                            chacc_logger.info(f"  - {route.path}: {', '.join(route.methods)}")
+                    else:
+                        chacc_logger.info(f"Module '{module_name}' has no routes")
                 else:
                     chacc_logger.warning(f"Plugin '{module_name}': Setup function did not return an APIRouter.")
 

@@ -412,6 +412,12 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                             module.__package__ = f"{module_name}.module"
                             sys.modules[module_name_in_package] = module
                             chacc_logger.debug(f"Pre-registered module: {module_name_in_package}")
+                            if module_name_in_package != f"{module_name}.module.{module_relative_path}":
+                                try:
+                                    spec.loader.exec_module(module)
+                                    chacc_logger.debug(f"Pre-executed module: {module_name_in_package}")
+                                except Exception as e:
+                                    chacc_logger.warning(f"Failed to pre-execute module {module_name_in_package}: {e}")
                 
                 spec = importlib.util.spec_from_file_location(module_relative_path, plugin_main_file_path)
                 if spec is None:
@@ -478,7 +484,6 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                     chacc_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
                     chacc_logger.info(f"Module '{module_name}' documentation tags: {module_tags}")
                     
-                    # Log all routes that were mounted
                     if hasattr(plugin_router, 'routes'):
                         chacc_logger.info(f"Module '{module_name}' routes mounted:")
                         for route in plugin_router.routes:

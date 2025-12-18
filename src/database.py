@@ -39,7 +39,8 @@ convention = {
 metadata_obj = MetaData(naming_convention=convention)
 
 def register_model(cls):
-    _model_registry.add(cls)
+    if cls not in _model_registry:
+        _model_registry.add(cls)
     return cls
 
 @as_declarative(metadata=metadata_obj)

@@ -30,12 +30,17 @@ def _discover_and_import_models(directory: str, base_module_path: str, logger: l
     Recursively scans a directory for Python files and imports them.
     This is for automatic model discovery.
     """
+    
     for root, _, files in os.walk(directory):
         for file in files:
             if file.endswith('.py') and file != '__init__.py':
                 file_path = os.path.join(root, file)
                 relative_path = os.path.relpath(file_path, directory)
                 module_name = f"{base_module_path}.{relative_path[:-3].replace(os.sep, '.')}"
+
+                if module_name in sys.modules:
+                    logger.debug(f"Skipping import of {file_path} as it is already imported.")
+                    continue
 
                 try:
                     spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -44,6 +49,9 @@ def _discover_and_import_models(directory: str, base_module_path: str, logger: l
                     spec.loader.exec_module(module)
                     chacc_logger.info(f"Dynamically imported models from: {module_name}")
                 except Exception as e:
+                    if "already defined for this MetaData instance" in str(e):
+                        logger.warning(f"Skipping import of {file_path} as its table is already registered in metadata.")
+                        continue
                     chacc_logger.error(f"Failed to import models from {file_path}: {e}", exc_info=True)
 
 

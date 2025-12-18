@@ -45,9 +45,29 @@ def _discover_and_import_models(directory: str, base_module_path: str, logger: l
                 try:
                     spec = importlib.util.spec_from_file_location(module_name, file_path)
                     module = importlib.util.module_from_spec(spec)
+                    
+                    module.__package__ = base_module_path
+                    
+                    parent_package_name = base_module_path
+                    if parent_package_name not in sys.modules:
+                        parent_module = importlib.util.module_from_spec(
+                            importlib.util.spec_from_loader(parent_package_name, loader=None)
+                        )
+                        sys.modules[parent_package_name] = parent_module
+                        parent_module.__path__ = [os.path.dirname(file_path)]
+                        parent_module.__package__ = parent_package_name
+                    
                     sys.modules[module_name] = module
+                    
                     spec.loader.exec_module(module)
                     chacc_logger.info(f"Dynamically imported models from: {module_name}")
+                except ImportError as e:
+                    if "already defined for this MetaData instance" in str(e):
+                        logger.warning(f"Skipping import of {file_path} as its table is already registered in metadata.")
+                        continue
+                    chacc_logger.warning(f"Relative import issue in {file_path}: {e}")
+                    chacc_logger.warning(f"Module name: {module_name}, Base path: {base_module_path}")
+                    continue
                 except Exception as e:
                     if "already defined for this MetaData instance" in str(e):
                         logger.warning(f"Skipping import of {file_path} as its table is already registered in metadata.")
@@ -340,8 +360,19 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 
                 models_directory = os.path.join(module_path, "module")
                 if os.path.isdir(models_directory):
+                    init_file = os.path.join(models_directory, "__init__.py")
+                    if not os.path.exists(init_file):
+                        with open(init_file, 'w') as f:
+                            f.write("# Package initialization\n")
+                        chacc_logger.debug(f"Created missing __init__.py file in {models_directory}")
+                    
                     sys.path.insert(0, models_directory)
-                    _discover_and_import_models(models_directory, f"{module_name}.module", backbone_context.logger)
+                    try:
+                        _discover_and_import_models(models_directory, f"{module_name}.module", backbone_context.logger)
+                    except Exception as e:
+                        chacc_logger.warning(f"Failed to discover models for module {module_name}: {e}")
+                        chacc_logger.warning("Continuing with module loading despite model discovery issues")
+                        
                 
                 module_meta = record.meta_data if record.meta_data else {}
                 entry_point_str = module_meta.get("entry_point")
@@ -364,6 +395,24 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 
                 sys.path.insert(0, plugin_code_dir)
 
+                all_module_files = []
+                for root, _, files in os.walk(plugin_code_dir):
+                    for file in files:
+                        if file.endswith('.py') and file != '__init__.py':
+                            file_path = os.path.join(root, file)
+                            rel_path = os.path.relpath(file_path, plugin_code_dir)
+                            module_name_in_package = f"{module_name}.module.{rel_path[:-3].replace(os.sep, '.')}"
+                            all_module_files.append((file_path, module_name_in_package))
+                
+                for file_path, module_name_in_package in all_module_files:
+                    if module_name_in_package not in sys.modules:
+                        spec = importlib.util.spec_from_file_location(module_name_in_package, file_path)
+                        if spec:
+                            module = importlib.util.module_from_spec(spec)
+                            module.__package__ = f"{module_name}.module"
+                            sys.modules[module_name_in_package] = module
+                            chacc_logger.debug(f"Pre-registered module: {module_name_in_package}")
+                
                 spec = importlib.util.spec_from_file_location(module_relative_path, plugin_main_file_path)
                 if spec is None:
                     chacc_logger.error(f"Could not create spec for module '{module_name}'.")
@@ -372,6 +421,7 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 module = importlib.util.module_from_spec(spec)
                 
                 module.__package__ = f"{module_name}.module"
+                chacc_logger.debug(f"Set module.__package__ = {module.__package__}")
                 
                 parent_package_name = f"{module_name}.module"
                 if parent_package_name not in sys.modules:
@@ -381,8 +431,27 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                     sys.modules[parent_package_name] = parent_module
                     parent_module.__path__ = [plugin_code_dir]
                     parent_module.__package__ = parent_package_name
+                    chacc_logger.debug(f"Set up parent package {parent_package_name} with path {plugin_code_dir}")
                 
-                spec.loader.exec_module(module)
+                if hasattr(sys.modules[parent_package_name], '__path__'):
+                    sys.modules[parent_package_name].__path__.append(plugin_code_dir)
+                else:
+                    sys.modules[parent_package_name].__path__ = [plugin_code_dir]
+                
+                try:
+                    spec.loader.exec_module(module)
+                    chacc_logger.info(f"Successfully imported module '{module_name}'")
+                except ImportError as e:
+                    chacc_logger.error(f"Import error in module '{module_name}': {e}")
+                    chacc_logger.error(f"This often happens with relative imports. Ensure module uses proper import syntax.")
+                    chacc_logger.error(f"Module path: {plugin_code_dir}")
+                    chacc_logger.error(f"Module package: {module.__package__}")
+                    parent_package = sys.modules.get(parent_package_name)
+                    if parent_package:
+                        chacc_logger.error(f"Parent package path: {getattr(parent_package, '__path__', 'Not set')}")
+                    else:
+                        chacc_logger.error(f"Parent package '{parent_package_name}' not found in sys.modules")
+                    continue
 
                 setup_func = getattr(module, func_name, None)
                 if not setup_func or not callable(setup_func):

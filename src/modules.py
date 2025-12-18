@@ -180,6 +180,28 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
 
             if should_unzip:
                 modules_to_process.append((module_name, chacc_filepath, chacc_mtime, is_new_module))
+            
+            if is_new_module:
+                meta_file_path = os.path.join(loaded_module_dir, "module_meta.json") if os.path.exists(loaded_module_dir) else None
+                if meta_file_path and os.path.exists(meta_file_path):
+                    try:
+                        with open(meta_file_path, 'r') as f:
+                            meta_data = json.load(f)
+                        
+                        new_record = ModuleRecord(
+                            name=module_name,
+                            display_name=meta_data.get("display_name"),
+                            version=meta_data.get("version"),
+                            author=meta_data.get("author"),
+                            description=meta_data.get("description"),
+                            is_enabled=True,
+                            base_path_prefix=meta_data.get("base_path_prefix", f'/{module_name}'),
+                            meta_data=meta_data
+                        )
+                        db.add(new_record)
+                        chacc_logger.info(f"New module '{module_name}' found. Created new DB record.")
+                    except Exception as e:
+                        chacc_logger.error(f"Failed to create database record for module '{module_name}': {e}")
 
         for module_name, chacc_filepath, chacc_mtime, is_new_module in modules_to_process:
             loaded_module_dir = os.path.join(MODULES_LOADED_DIR, module_name)

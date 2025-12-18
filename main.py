@@ -101,6 +101,8 @@ async def onStartupLifespan(app: FastAPI):
     if not modules_table_exists:
         await run_automatic_migration()
 
+        print("First migration completed. Running backbone tests before loading modules...")
+
     await run_backbone_tests()
 
     await load_modules(app, backbone_context)

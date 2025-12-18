@@ -370,6 +370,18 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                     continue
 
                 module = importlib.util.module_from_spec(spec)
+                
+                module.__package__ = f"{module_name}.module"
+                
+                parent_package_name = f"{module_name}.module"
+                if parent_package_name not in sys.modules:
+                    parent_module = importlib.util.module_from_spec(
+                        importlib.util.spec_from_loader(parent_package_name, loader=None)
+                    )
+                    sys.modules[parent_package_name] = parent_module
+                    parent_module.__path__ = [plugin_code_dir]
+                    parent_module.__package__ = parent_package_name
+                
                 spec.loader.exec_module(module)
 
                 setup_func = getattr(module, func_name, None)
@@ -384,12 +396,10 @@ async def load_modules(app: FastAPI, backbone_context: BackboneContext, only_mod
                 if plugin_router and isinstance(plugin_router, APIRouter):
                     chacc_logger.info(f"Mounting router for module '{module_name}' at prefix: {record.base_path_prefix}")
                     
-                    # Configure router with proper OpenAPI metadata for documentation
                     module_tags = module_meta.get("tags", [record.display_name])
                     if not isinstance(module_tags, list):
                         module_tags = [module_tags]
                     
-                    # Include router in app with proper configuration
                     app.include_router(
                         plugin_router,
                         prefix=record.base_path_prefix,

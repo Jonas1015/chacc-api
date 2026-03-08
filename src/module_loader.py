@@ -391,7 +391,7 @@ def load_single_module(record, app, backbone_context) -> bool:
     
     chacc_logger.info(f"Confirmed module directory exists: {module_path}")
     
-    models_directory = os.path.join(module_path, "module")
+    models_directory = os.path.join(module_path, f"")
     if os.path.isdir(models_directory):
         init_file = os.path.join(models_directory, "__init__.py")
         if not os.path.exists(init_file):
@@ -404,7 +404,7 @@ def load_single_module(record, app, backbone_context) -> bool:
             sys.path.insert(0, parent_dir)
         
         try:
-            discover_and_import_models(models_directory, f"{module_name}.module", backbone_context.logger)
+            discover_and_import_models(models_directory, f"{module_name}", backbone_context.logger)
         except Exception as e:
             chacc_logger.warning(f"Failed to discover models for module {module_name}: {e}")
             chacc_logger.warning("Continuing with module loading despite model discovery issues")
@@ -417,8 +417,7 @@ def load_single_module(record, app, backbone_context) -> bool:
         return False
 
     module_relative_path, func_name = entry_point_str.split(":")
-    plugin_code_dir = os.path.join(module_path, "module")
-    plugin_main_file_path = os.path.join(plugin_code_dir, *module_relative_path.split('.')) + ".py"
+    plugin_main_file_path = os.path.join(module_path, *module_relative_path.split('.')) + ".py"
 
     if not os.path.exists(plugin_main_file_path):
         chacc_logger.warning(
@@ -429,12 +428,12 @@ def load_single_module(record, app, backbone_context) -> bool:
 
     chacc_logger.info(f"Found entry point file: {plugin_main_file_path}")
     
-    parent_dir = os.path.dirname(plugin_code_dir)
+    parent_dir = os.path.dirname(module_path)
     if parent_dir not in sys.path:
         sys.path.insert(0, parent_dir)
     chacc_logger.debug(f"Added parent directory to sys.path: {parent_dir}")
 
-    full_module_name = f"{module_name}.module.{module_relative_path}"
+    full_module_name = f"{module_name}.{module_relative_path}"
     
     try:
         module = importlib.import_module(full_module_name)
@@ -442,7 +441,7 @@ def load_single_module(record, app, backbone_context) -> bool:
     except ImportError as e:
         chacc_logger.error(f"Import error in module '{module_name}': {e}")
         chacc_logger.error(f"This often happens with relative imports. Ensure module uses proper import syntax.")
-        chacc_logger.error(f"Module path: {plugin_code_dir}")
+        chacc_logger.error(f"Module path: {module_path}")
         chacc_logger.error(f"Full module name: {full_module_name}")
         return False
     

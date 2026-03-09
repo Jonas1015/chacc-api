@@ -65,13 +65,19 @@ from pydantic import BaseModel
 
         # Create routes.py
         routes_content = f"""
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from .context_factory import get_module_context
 
 router = APIRouter()
 
-@router.get("/hello")
-async def hello_world(request: Request):
-    return {{"message": "Hello from {module_name}!"}}
+
+def get_db():
+    """Get database session from module context."""
+    context = get_module_context()
+    if context is None:
+        raise HTTPException(status_code=500, detail="Module not initialized")
+    return context.get_db()
+
 
 # Example: Import models from the module package using relative imports
 # from .models import {module_name.title()}Item, {module_name.title()}Create, {module_name.title()}Response
@@ -79,6 +85,7 @@ async def hello_world(request: Request):
 # Example: Add your module endpoints here
 # @router.post("/", response_model={module_name.title()}Response)
 # async def create_item(item: {module_name.title()}Create):
+#     db = next(get_db())
 #     # Implementation here
 #     pass
 """
@@ -192,6 +199,21 @@ from typing import Optional
 from src.core_services import BackboneContext
 
 
+# Module-level context holder (set by main.py after setup_plugin is called)
+_module_context: Optional[BackboneContext] = None
+
+
+def set_module_context(context: BackboneContext):
+    \"\"\"Set the module context (called by main.py).\"\"\"
+    global _module_context
+    _module_context = context
+
+
+def get_module_context() -> Optional[BackboneContext]:
+    \"\"\"Get the module context (used by other modules to avoid circular imports).\"\"\"
+    return _module_context
+
+
 class ContextFactory:
     \"\"\"Factory for creating appropriate BackboneContext based on environment.\"\"\"
 
@@ -258,9 +280,7 @@ from fastapi import APIRouter
 from src.core_services import BackboneContext
 from typing import Optional
 from .routes import router as {module_name}_router
-from .context_factory import get_context
-
-_module_context: BackboneContext = None
+from .context_factory import get_context, set_module_context
 
 
 # --- Module Setup ---
@@ -269,8 +289,8 @@ def setup_plugin(context: Optional[BackboneContext] = None):
     This function is called by the ChaCC API backbone to initialize your module.
     It can also be called in development mode without a context.
     \"\"\"
-    global _module_context
     _module_context = get_context(context)
+    set_module_context(_module_context)
 
     _module_context.logger.info("{module_name}: Setup initiated!")
 
@@ -310,17 +330,27 @@ import argparse
 
 def setup_venv():
     \"\"\"Setup virtual environment if it doesn't exist.\"\"\"
-    venv_path = "venv"
+    # Find project root (where requirements.txt exists)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    venv_path = os.path.join(project_root, ".chacc_venv")
+    
     if not os.path.exists(venv_path):
-        print("Creating virtual environment...")
+        print(f"Creating shared virtual environment...")
+        subprocess.run([sys.executable, "-m", "venv", venv_path], check=True)
         subprocess.run([sys.executable, "-m", "venv", venv_path], check=True)
 
-    # Activate and install dependencies
-    activate_script = os.path.join(venv_path, "bin", "activate") if os.name != 'nt' else os.path.join(venv_path, "Scripts", "activate.bat")
-    pip_path = os.path.join(venv_path, "bin", "pip") if os.name != 'nt' else os.path.join(venv_path, "Scripts", "pip.exe")
+    pip_path = os.path.join(venv_path, "bin", "pip") if os.path.exists(os.path.join(venv_path, "bin", "pip")) else os.path.join(venv_path, "Scripts", "pip.exe")
 
-    print("Installing dependencies...")
-    subprocess.run([pip_path, "install", "-r", "requirements.txt"], check=True)
+    print("Installing backbone dependencies...")
+    backbone_req = os.path.join(project_root, "requirements.txt")
+    if os.path.exists(backbone_req):
+        subprocess.run([pip_path, "install", "-r", backbone_req], check=True)
+
+    # Install module requirements
+    module_req = os.path.join(os.path.dirname(__file__), "requirements.txt")
+    if os.path.exists(module_req):
+        print(f"Installing module dependencies...")
+        subprocess.run([pip_path, "install", "-r", module_req], check=True)
     subprocess.run([pip_path, "install", "pytest", "fastapi", "uvicorn"], check=True)
 
     return venv_path

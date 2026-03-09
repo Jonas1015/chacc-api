@@ -741,6 +741,57 @@ python -m chacc_cli server --modules-dir /path/to/modules
 
 **Note**: This uses the existing `main.py` application with uvicorn, providing the same real BackboneContext as production.
 
+### Module Environment Variables
+
+ChaCC API modules access environment variables through the `BackboneContext` using a standardized naming convention.
+
+**The Naming Convention:**
+
+All module-specific environment variables should follow the pattern: `{MODULE_NAME}_{VAR_NAME}` in uppercase.
+
+For example, for a module named `authentication`:
+```bash
+# In .env file at project root
+AUTHENTICATION_API_KEY=sk_test_12345
+AUTHENTICATION_SECRET=mysecretvalue
+```
+
+For a module named `my_app`:
+```bash
+MY_APP_API_KEY=sk_live_67890
+MY_APP_DATABASE_URL=postgresql://localhost/mydb
+```
+
+**How Modules Use It:**
+
+In your module's code, import the context and use `get_module_config()`:
+
+```python
+from .context_factory import get_module_context
+
+context = get_module_context()
+
+# For authentication module accessing API_KEY
+api_key = context.get_module_config("API_KEY", "authentication")  # Looks for AUTHENTICATION_API_KEY
+
+# For jonas module accessing SECRET with default
+secret = context.get_module_config("SECRET", "my_app", default="fallback_secret")
+```
+
+**Key Points:**
+- Environment variables are defined in the **main `.env` file** at project root (not in module directories)
+- The method automatically combines module name + key: `get_module_config("API_KEY", "jonas")` → `JONAS_API_KEY`
+- Use defaults for optional variables: `context.get_module_config("OPTIONAL", "mymodule", default="default_value")`
+- All module env vars share a single `.env` source - the project's root `.env` file
+
+**Best Practices:**
+1. Always use the module prefix to avoid conflicts between modules
+2. Provide sensible defaults for optional configuration
+3. Document required env vars in your module's README
+4. Never commit secrets to version control - use `.env` files
+
+#### Deploy a Module to Remote Server
+
 #### **Deploy a Module to Remote Server**
 ```bash
 # Set deployment configuration in .env file

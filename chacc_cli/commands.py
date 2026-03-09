@@ -44,6 +44,8 @@ def load_template(template_name: str, replacements: dict = None) -> str:
             content = content.replace(title_placeholder, str(value).replace('_', ' ').title())
             snake_placeholder = "{{" + key + "_snake}}"
             content = content.replace(snake_placeholder, str(value).replace('-', '_'))
+            upper_placeholder = "{{" + key + "_upper}}"
+            content = content.replace(upper_placeholder, str(value).upper())
     
     return content
 
@@ -66,6 +68,7 @@ def create_module_scaffold(module_name: str, output_dir: str):
     replacements = {
         "module_name": module_name,
         "module_name_title": module_name.replace('_', ' ').title(),
+        "module_name_upper": module_name.upper(),
         "module_description": f"A new ChaCC API module providing {module_name.replace('_', ' ')} functionality.",
         "module_configuration": "- `CHACC_ENV`: Set to `development`, `testing`, or `production`\n- `CHACC_BACKBONE`: Set to `true` when running in ChaCC backbone",
         "module_api_endpoints": f"- `GET /{module_name}/hello` - Health check endpoint",

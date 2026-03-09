@@ -4,6 +4,8 @@ Development context provider for testing modules outside the backbone.
 import logging
 from src.core_services import BackboneContext
 from src.database import get_db
+from decouple import config as decouple_config
+from typing import Optional
 
 
 class DevBackboneContext(BackboneContext):
@@ -49,6 +51,16 @@ class DevBackboneContext(BackboneContext):
     def get_db(self):
         """Get database session (returns the real get_db)."""
         return get_db()
+
+    def get_module_config(self, key: str, module_name: str, default: Optional[str] = None) -> Optional[str]:
+        """
+        Get a module-specific configuration value from environment variables.
+        This method automatically prefixes the key with the module name.
+        """
+        prefixed_key = f"{module_name.upper()}_{key.upper()}"
+        value = decouple_config(prefixed_key, default=default)
+        self.logger.debug(f"Config '{prefixed_key}' for module '{module_name}': {'set' if value else 'default'}")
+        return value
 
 
 def get_dev_context():

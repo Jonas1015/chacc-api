@@ -2,6 +2,26 @@
 
 {{module_description}}
 
+## Environment Variables
+
+This module uses environment variables from the main `.env` file at project root.
+Use the naming convention: `{MODULE_NAME}_{VAR_NAME}` in uppercase.
+
+For example, if your module is named `{{module_name}}`:
+```bash
+# In .env file at project root
+{{module_name_upper}}_API_KEY=your_api_key_here
+{{module_name_upper}}_SECRET=your_secret_here
+```
+
+In your module code:
+```python
+from .context_factory import get_module_context
+
+context = get_module_context()
+api_key = context.get_module_config("API_KEY", "{{module_name}}")  # Looks for {{module_name_upper}}_API_KEY
+```
+
 ## Installation
 
 This module is automatically loaded by the ChaCC backbone when it's placed in the `plugins/` directory.

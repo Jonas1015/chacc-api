@@ -1,0 +1,23 @@
+from fastapi import APIRouter, Depends, HTTPException
+from .context_factory import get_module_context
+
+router = APIRouter()
+
+
+def get_db():
+    """Get database session from module context."""
+    context = get_module_context()
+    if context is None:
+        raise HTTPException(status_code=500, detail="Module not initialized")
+    return context.get_db()
+
+
+# Example: Import models from the module package using relative imports
+# from .models import {{module_name_title}}Item, {{module_name_title}}Create, {{module_name_title}}Response
+
+# Example: Add your module endpoints here
+# @router.post("/", response_model={{module_name_title}}Response)
+# async def create_item(item: {{module_name_title}}Create):
+#     db = next(get_db())
+#     # Implementation here
+#     pass

@@ -1,0 +1,18 @@
+from src import ChaCCBaseModel, register_model
+from sqlalchemy import Column, String
+from pydantic import BaseModel
+
+
+# @register_model
+# class {{module_name_title}}Item(ChaCCBaseModel):
+#     __tablename__ = "{{module_name}}_items"
+#     name = Column(String, index=True)
+
+
+# Pydantic models for API
+# class {{module_name_title}}Create(BaseModel):
+#     name: str
+
+# class {{module_name_title}}Response(BaseModel):
+#     id: int
+#     name: str

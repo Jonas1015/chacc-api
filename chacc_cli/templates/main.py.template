@@ -1,0 +1,36 @@
+from fastapi import APIRouter
+from src.core_services import BackboneContext
+from typing import Optional
+from .routes import router as {{module_name}}_router
+from .context_factory import get_context, set_module_context
+
+
+# --- Module Setup ---
+def setup_plugin(context: Optional[BackboneContext] = None):
+    """
+    This function is called by the ChaCC API backbone to initialize your module.
+    It can also be called in development mode without a context.
+    """
+    _module_context = get_context(context)
+    set_module_context(_module_context)
+
+    _module_context.logger.info("{{module_name}}: Setup initiated!")
+
+    # Register services (add your services here)
+    # _module_context.register_service("your_service", your_service_function)
+
+    return {{module_name}}_router
+
+
+def get_plugin_info():
+    """
+    Provides essential information about this module to the ChaCC API backbone.
+    """
+    return {
+        "name": "{{module_name}}",
+        "display_name": "{{module_name_display}} Module",
+        "version": "0.1.0",
+        "author": "Your Name/Organization",
+        "description": "A new ChaCC API module for {{module_name_display}} functionality.",
+        "status": "enabled"
+    }

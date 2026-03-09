@@ -1,0 +1,38 @@
+"""
+Tests for {{module_name}} module.
+"""
+import pytest
+import sys
+import os
+
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, project_root)
+
+
+def test_module_imports():
+    """Test that the module can be imported."""
+    from . import main
+    assert main is not None
+
+
+def test_context_factory():
+    """Test context factory functions."""
+    from .context_factory import set_module_context, get_module_context
+    from src.core_services import BackboneContext
+
+    # Create a mock context
+    mock_context = BackboneContext()
+
+    # Set and get context
+    set_module_context(mock_context)
+    retrieved = get_module_context()
+
+    assert retrieved is mock_context
+
+
+def test_routes_exist():
+    """Test that routes are defined."""
+    from .routes import router
+    assert router is not None
+    assert hasattr(router, 'routes')

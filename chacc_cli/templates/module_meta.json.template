@@ -1,0 +1,16 @@
+{
+    "name": "{{module_name}}",
+    "version": "0.1.0",
+    "description": "{{module_description}}",
+    "author": "{{author_name}}",
+    "dependencies": [],
+    "routes": [
+        {
+            "path": "/{{module_name}}",
+            "name": "{{module_name}}",
+            "description": "{{module_name_title}} module routes"
+        }
+    ],
+    "services": [],
+    "events": []
+}

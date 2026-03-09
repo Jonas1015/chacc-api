@@ -1,0 +1,91 @@
+"""
+Development context provider for testing modules outside the backbone.
+"""
+import logging
+from src.core_services import BackboneContext
+from src.database import get_db
+
+
+class DevBackboneContext(BackboneContext):
+    """Mock BackboneContext for development and testing."""
+
+    def __init__(self):
+        # Mock logger
+        self.logger = logging.getLogger("dev_{{module_name}}")
+        self.logger.setLevel(logging.INFO)
+        handler = logging.StreamHandler()
+        formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+
+        # Mock services registry
+        self._services = {}
+        self._event_listeners = {}
+
+    def register_service(self, name, service):
+        """Register a service."""
+        self._services[name] = service
+        self.logger.info(f"Registered service: {name}")
+
+    def get_service(self, name):
+        """Get a registered service."""
+        return self._services.get(name)
+
+    def emit_event(self, event_name, data=None):
+        """Emit an event to listeners."""
+        listeners = self._event_listeners.get(event_name, [])
+        for listener in listeners:
+            try:
+                listener(data)
+            except Exception as e:
+                self.logger.error(f"Error in event listener for {event_name}: {e}")
+
+    def on_event(self, event_name, callback):
+        """Register an event listener."""
+        if event_name not in self._event_listeners:
+            self._event_listeners[event_name] = []
+        self._event_listeners[event_name].append(callback)
+
+    def get_db(self):
+        """Get database session (returns the real get_db)."""
+        return get_db()
+
+
+def get_dev_context():
+    """Get a development context instance."""
+    return DevBackboneContext()
+
+
+def run_module_standalone():
+    """Run the module in standalone mode for development."""
+    from .main import setup_plugin
+    from .routes import router
+    from fastapi import FastAPI
+    import uvicorn
+
+    # Create dev context
+    context = get_dev_context()
+
+    # Setup the module
+    module_router = setup_plugin(context)
+
+    # Create standalone app
+    app = FastAPI(title="{{module_name_title}} Module - Standalone")
+
+    # Mount the module router
+    app.include_router(module_router, prefix="/{{module_name}}")
+
+    # Add health check
+    @app.get("/health")
+    async def health():
+        return {"status": "healthy", "module": "{{module_name}}"}
+
+    print("Starting {{module_name}} module in standalone mode...")
+    print("Access at: http://localhost:8001/{{module_name}}/")
+    print("Health check: http://localhost:8001/health")
+
+    uvicorn.run(app, host="0.0.0.0", port=8001)
+
+
+if __name__ == "__main__":
+    run_module_standalone()

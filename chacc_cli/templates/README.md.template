@@ -1,0 +1,50 @@
+# {{module_name_title}} Module
+
+{{module_description}}
+
+## Installation
+
+This module is automatically loaded by the ChaCC backbone when it's placed in the `plugins/` directory.
+
+## Development
+
+### Running in Standalone Mode
+
+To run this module independently for development:
+
+```bash
+cd plugins/{{module_name}}
+python -m module.dev_context
+```
+
+Or use the run_tests.py script:
+
+```bash
+cd plugins/{{module_name}}
+python run_tests.py
+```
+
+### Testing
+
+Run tests using pytest:
+
+```bash
+pytest tests/ -v
+```
+
+## Configuration
+
+{{module_configuration}}
+
+## API Endpoints
+
+{{module_api_endpoints}}
+
+## Dependencies
+
+- Python 3.12+
+- FastAPI
+- SQLAlchemy
+- Pydantic
+
+See `requirements.txt` for full dependencies.

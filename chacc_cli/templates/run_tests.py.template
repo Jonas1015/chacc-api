@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""
+Standalone test runner for {{module_name}} module.
+This script runs the module's tests without depending on the backbone.
+"""
+import sys
+import os
+import subprocess
+
+# Get the project root (parent of the module directory)
+module_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(module_dir)
+
+
+def run_tests():
+    """Run pytest for this module."""
+    # Ensure we're using the shared virtual environment
+    venv_python = os.path.join(project_root, ".chacc_venv", "bin", "python")
+    if not os.path.exists(venv_python):
+        venv_python = sys.executable  # Fall back to current Python
+
+    # Add project root to path
+    sys.path.insert(0, project_root)
+
+    # Run pytest
+    result = subprocess.run(
+        [venv_python, "-m", "pytest", "tests/", "-v", "--tb=short"],
+        cwd=module_dir,
+        env={**os.environ, "PYTHONPATH": project_root}
+    )
+
+    return result.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(run_tests())

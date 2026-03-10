@@ -1,3 +1,4 @@
+import asyncio
 import subprocess
 import sys
 from fastapi import FastAPI
@@ -8,7 +9,7 @@ from src.modules import modules_router
 from src.database import ModuleRecord, initialize_database_models, get_db, run_automatic_migration
 from src.logger import configure_logging, LogLevels
 from src.core_services import BackboneContext
-from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR
+from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR, ENABLE_PLUGIN_HOT_RELOAD
 
 chacc_logger = configure_logging(log_level=LogLevels.DEBUG)
 

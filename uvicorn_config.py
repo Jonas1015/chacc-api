@@ -2,6 +2,8 @@
 Uvicorn configuration to prevent auto-reloader loops.
 """
 import os
+from decouple import config as env_config
+from src.constants import PLUGINS_DIR, MODULES_LOADED_DIR, MODULES_UPLOAD_DIR, MODULES_INSTALLED_DIR, DEVELOPMENT_MODE, DEPENDENCY_CACHE_DIR, BACKBONE_REQUIREMENTS_LOCK_FILE, DEPENDENCY_CACHE_FILE, ENABLE_PLUGIN_HOT_RELOAD
 
 config = {
     "app": "main:app",
@@ -10,10 +12,12 @@ config = {
     "reload": True,
     "reload_dirs": ["src", "main.py"],
     "reload_excludes": [
-        ".modules_loaded",
-        ".modules_upload",
-        ".chacc_cache",
-        "modules_installed",
+        f"{MODULES_LOADED_DIR}/",
+        f"{MODULES_UPLOAD_DIR}/",
+        f"{DEPENDENCY_CACHE_DIR}/",
+        BACKBONE_REQUIREMENTS_LOCK_FILE,
+        f"{MODULES_INSTALLED_DIR}/",
+        DEPENDENCY_CACHE_FILE,
         "*.chacc",
         "__pycache__",
         ".pytest_cache",
@@ -22,7 +26,7 @@ config = {
         "*.db",
         "*.log",
         ".env",
-        "plugins/"
+        f"{PLUGINS_DIR}/" if "/" in PLUGINS_DIR else PLUGINS_DIR if not DEVELOPMENT_MODE and ENABLE_PLUGIN_HOT_RELOAD else "",
     ]
 }
 

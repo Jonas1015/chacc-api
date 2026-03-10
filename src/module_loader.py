@@ -333,97 +333,70 @@ def sync_database_with_filesystem(chacc_to_module_name: Dict[str, str], existing
                 shutil.rmtree(loaded_module_dir)
 
 
-def load_single_module(record, app, backbone_context) -> bool:
+def load_single_module(
+    module_name: str,
+    module_path: str,
+    module_metadata: dict,
+    app: FastAPI,
+    backbone_context: BackboneContext,
+    base_path_prefix: str = None,
+    tags: list = None
+) -> bool:
     """
     Load a single module into the application.
     
+    This is a pure function - no database records or file system operations.
+    All required data is passed as parameters.
+    
     Args:
-        record: ModuleRecord from database
+        module_name: Name of the module
+        module_path: Path to the module directory
+        module_metadata: Module metadata dict (from module_meta.json)
         app: FastAPI application
         backbone_context: BackboneContext for the module
+        base_path_prefix: Override the base path prefix
+        tags: Override the tags
         
     Returns:
         True if successful, False otherwise
     """
     from fastapi import APIRouter
     
-    module_name = record.name
-    module_path = os.path.join(MODULES_LOADED_DIR, module_name)
-    
-    chacc_logger.info(f"Attempting to load module '{module_name}' with path: {module_path}")
-
-    if not record.is_enabled:
-        chacc_logger.info(f"Skipping disabled module: {module_name}")
-        return False
+    chacc_logger.info(f"Loading module '{module_name}' from path: {module_path}")
 
     if not os.path.isdir(module_path):
-        chacc_logger.error(
-            f"Module '{module_name}' marked as enabled in DB but its directory is missing: {module_path}. "
-            f"Setting it to disabled."
-        )
-        return False
-    
-    if not module_path.startswith(MODULES_LOADED_DIR):
-        chacc_logger.error(
-            f"Module '{module_name}' has invalid path: {module_path}. "
-            f"Modules can only be loaded from {MODULES_LOADED_DIR}"
-        )
+        chacc_logger.error(f"Module path does not exist: {module_path}")
         return False
 
-    chacc_logger.info(f"Starting to load module '{module_name}' from database")
-    chacc_logger.info(f"Module path: {module_path}")
+    chacc_logger.info(f"Module path confirmed: {module_path}")
     
-    chacc_file_path = get_chacc_filepath(module_name)
-    if not chacc_file_path:
-        chacc_logger.error(
-            f"Module '{module_name}' .chacc file not found. Setting module to disabled."
-        )
-        return False
-    
-    chacc_logger.info(f"Confirmed .chacc file exists: {chacc_file_path}")
-    
-    if not os.path.isdir(module_path):
-        chacc_logger.error(
-            f"Module '{module_name}' directory not found at {module_path}. "
-            f"Setting module to disabled."
-        )
-        return False
-    
-    chacc_logger.info(f"Confirmed module directory exists: {module_path}")
-    
-    models_directory = os.path.join(module_path, f"")
-    if os.path.isdir(models_directory):
-        init_file = os.path.join(models_directory, "__init__.py")
+    # Discover models if models directory exists
+    models_dir = os.path.join(module_path, "models")
+    if os.path.isdir(models_dir):
+        init_file = os.path.join(models_dir, "__init__.py")
         if not os.path.exists(init_file):
             with open(init_file, 'w') as f:
                 f.write("# Package initialization\n")
-            chacc_logger.debug(f"Created missing __init__.py file in {models_directory}")
         
-        parent_dir = os.path.dirname(models_directory)
+        parent_dir = os.path.dirname(models_dir)
         if parent_dir not in sys.path:
             sys.path.insert(0, parent_dir)
         
         try:
-            discover_and_import_models(models_directory, f"{module_name}", backbone_context.logger)
+            discover_and_import_models(models_dir, f"{module_name}", backbone_context.logger)
         except Exception as e:
             chacc_logger.warning(f"Failed to discover models for module {module_name}: {e}")
-            chacc_logger.warning("Continuing with module loading despite model discovery issues")
     
-    module_meta = record.meta_data if record.meta_data else {}
-    entry_point_str = module_meta.get("entry_point")
-
+    entry_point_str = module_metadata.get("entry_point")
     if not entry_point_str or ":" not in entry_point_str:
-        chacc_logger.warning(f"Skipping '{module_name}': Invalid 'entry_point' in DB metadata.")
+        chacc_logger.warning(f"Skipping '{module_name}': Invalid 'entry_point' in metadata.")
         return False
 
     module_relative_path, func_name = entry_point_str.split(":")
     plugin_main_file_path = os.path.join(module_path, *module_relative_path.split('.')) + ".py"
 
     if not os.path.exists(plugin_main_file_path):
-        chacc_logger.warning(
-            f"Skipping '{module_name}': Entry point file '{plugin_main_file_path}' not found on disk. "
-            f"Setting module to disabled."
-        )
+        chacc_logger.warning(f"Skipping '{module_name}': Entry point file not found: {plugin_main_file_path}")
         return False
 
     chacc_logger.info(f"Found entry point file: {plugin_main_file_path}")
@@ -463,19 +436,18 @@ def load_single_module(record, app, backbone_context) -> bool:
     plugin_router = setup_func(backbone_context)
 
     if plugin_router and isinstance(plugin_router, APIRouter):
-        chacc_logger.info(f"Mounting router for module '{module_name}' at prefix: {record.base_path_prefix}")
-        
-        module_tags = module_meta.get("tags", [record.display_name])
+        prefix = base_path_prefix or module_metadata.get("base_path_prefix", f"/{module_name}")
+        module_tags = tags or module_metadata.get("tags", [module_metadata.get("display_name", module_name)])
         if not isinstance(module_tags, list):
             module_tags = [module_tags]
         
         app.include_router(
             plugin_router,
-            prefix=record.base_path_prefix,
+            prefix=prefix,
             tags=module_tags
         )
         
-        chacc_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {record.base_path_prefix}")
+        chacc_logger.info(f"Module '{module_name}' loaded and enabled with prefix: {prefix}")
         chacc_logger.info(f"Module '{module_name}' documentation tags: {module_tags}")
         
         if hasattr(plugin_router, 'routes'):
@@ -612,10 +584,17 @@ async def load_modules(
 
         for record in updated_records:
             try:
-                load_single_module(record, app, backbone_context)
-                # if not success:
-                #     record.is_enabled = False
-                #     db.commit()
+                module_path = os.path.join(MODULES_LOADED_DIR, record.name)
+                metadata = record.meta_data if record.meta_data else {}
+                
+                load_single_module(
+                    module_name=record.name,
+                    module_path=module_path,
+                    module_metadata=metadata,
+                    app=app,
+                    backbone_context=backbone_context,
+                    base_path_prefix=record.base_path_prefix
+                )
             except Exception as e:
                 chacc_logger.error(f"Error loading module '{record.name}': {e}", exc_info=True)
                 try:

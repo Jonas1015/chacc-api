@@ -4,9 +4,16 @@ from decouple import config
 MODULES_INSTALLED_DIR = "modules_installed"
 MODULES_LOADED_DIR = ".modules_loaded"
 MODULES_UPLOAD_DIR = ".modules_upload"
+PLUGINS_DIR = "plugins"
 DEPENDENCY_CACHE_DIR = ".chacc_cache"
 BACKBONE_REQUIREMENTS_LOCK_FILE = f"{DEPENDENCY_CACHE_DIR}/compiled_requirements.lock"
 DEPENDENCY_CACHE_FILE = f"{DEPENDENCY_CACHE_DIR}/dependency_cache.json"
+
+# Development mode detection
+DEVELOPMENT_MODE = config("DEVELOPMENT_MODE", default=False, cast=bool)
+ENABLE_PLUGIN_HOT_RELOAD = config("ENABLE_PLUGIN_HOT_RELOAD", default=True, cast=bool)
+ENABLE_PLUGIN_DEPENDENCY_RESOLUTION = config("ENABLE_PLUGIN_DEPENDENCY_RESOLUTION", default=True, cast=bool)
+PLUGIN_AUTO_DISCOVERY = config("PLUGIN_AUTO_DISCOVERY", default=True, cast=bool)
 
 DATABASE_ENGINE = config("DATABASE_ENGINE", default="sqlite", cast=str)
 DATABASE_NAME = config("DATABASE_NAME", default="opentzdb")
@@ -28,3 +35,4 @@ os.makedirs(MODULES_INSTALLED_DIR, exist_ok=True)
 os.makedirs(MODULES_LOADED_DIR, exist_ok=True)
 os.makedirs(MODULES_UPLOAD_DIR, exist_ok=True)
 os.makedirs(DEPENDENCY_CACHE_DIR, exist_ok=True)
+os.makedirs(PLUGINS_DIR, exist_ok=True)

@@ -16,9 +16,10 @@ import os
 import shutil
 import json
 import zipfile
-from fastapi import Depends, status, UploadFile, File, HTTPException, APIRouter
+from fastapi import Depends, status, UploadFile, File, HTTPException, APIRouter, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from src.logger import LogLevels, configure_logging
 from src.constants import MODULES_INSTALLED_DIR, MODULES_LOADED_DIR
@@ -29,12 +30,7 @@ from src.chacc_dependency_manager import (
 )
 
 from src.module_loader import (
-    collect_module_requirements,
-    load_modules,
-    extract_module_names_from_chacc_files,
     get_chacc_filepath,
-    load_single_module,
-    run_module_tests,
 )
 
 chacc_logger = configure_logging(log_level=LogLevels.INFO)
@@ -43,8 +39,58 @@ chacc_logger = configure_logging(log_level=LogLevels.INFO)
 modules_router = APIRouter()
 
 
-@modules_router.post("/modules/")
-async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Session = Depends(get_db)):
+async def get_current_user_optional(request: Request) -> Optional[object]:
+    """
+    Optional authentication dependency.
+    
+    If the authentication module is loaded and get_current_user is registered,
+    it will require authentication. Otherwise, it returns None (allows access).
+    
+    This allows core APIs to be open when authentication is not present,
+    but protected when the authentication module is loaded.
+    """
+    backbone_context = getattr(request.app.state, 'backbone_context', None)
+    
+    if backbone_context is None:
+        chacc_logger.info("NO BACKBONE CONTEXT. ALLOW ACCESS TO CORE ROUTES")
+        return None
+    
+    get_current_user = backbone_context.get_service('get_current_user')
+    
+    if get_current_user is None:
+        chacc_logger.info("NO AUTHENTICATION MODULE, ALLOW ACCESS TO CORE ROUTES")
+        return None
+    
+    from fastapi.security import HTTPAuthorizationCredentials
+    
+    auth_header = request.headers.get('Authorization')
+    if not auth_header:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    try:
+        scheme, credentials = auth_header.split()
+        if scheme.lower() != 'bearer':
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        credentials_obj = HTTPAuthorizationCredentials(scheme='Bearer', credentials=credentials)
+        return await get_current_user(credentials_obj)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+@modules_router.post("/modules/", dependencies=[])
+async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: Optional[object] = Depends(get_current_user_optional)):
     """
     Installs a new ChaCC API module from an .chacc package.
     Resolves dependencies BEFORE unzipping to prevent inconsistent state.
@@ -130,7 +176,7 @@ async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Sessio
 
 
 @modules_router.get("/modules/")
-async def get_modules_endpoint(db: Session = Depends(get_db)):
+async def get_modules_endpoint(db: Session = Depends(get_db), current_user: Optional[object] = Depends(get_current_user_optional)):
     """
     Retrieves a list of all installed modules and their current status from the database.
     """
@@ -152,7 +198,7 @@ async def get_modules_endpoint(db: Session = Depends(get_db)):
 
 
 @modules_router.post("/modules/{module_name}/enable")
-async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)):
+async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db), current_user: Optional[object] = Depends(get_current_user_optional)):
     """
     Marks a module as enabled in the database.
     Resolves dependencies BEFORE unzipping to prevent inconsistent state.
@@ -240,7 +286,7 @@ async def enable_module_endpoint(module_name: str, db: Session = Depends(get_db)
 
 
 @modules_router.post("/modules/{module_name}/disable")
-async def disable_module_endpoint(module_name: str, db: Session = Depends(get_db)):
+async def disable_module_endpoint(module_name: str, db: Session = Depends(get_db), current_user: Optional[object] = Depends(get_current_user_optional)):
     """
     Marks a module as disabled in the database. Requires server restart to take effect.
     """
@@ -272,7 +318,7 @@ async def disable_module_endpoint(module_name: str, db: Session = Depends(get_db
 
 
 @modules_router.delete("/modules/{module_name}/uninstall")
-async def uninstall_module_endpoint(module_name: str, db: Session = Depends(get_db)):
+async def uninstall_module_endpoint(module_name: str, db: Session = Depends(get_db), current_user: Optional[object] = Depends(get_current_user_optional)):
     """
     Uninstalls a module by removing its code from disk and its record from the database.
     Requires server restart to take full effect.

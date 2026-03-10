@@ -87,6 +87,8 @@ async def onStartupLifespan(app: FastAPI):
         logger=chacc_logger,
         db_session_factory=get_db
     )
+    
+    app.state.backbone_context = backbone_context
 
     initialize_database_models(backbone_context)
     
@@ -138,6 +140,9 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 app.state.loaded_modules = {}
 app.state.mounted_routers = {}
+
+# Store reference to backbone context for authentication dependency
+app.state.backbone_context = None
 
 @app.get("/",
          summary="Root Endpoint",

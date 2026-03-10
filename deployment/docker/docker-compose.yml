@@ -1,0 +1,80 @@
+# ChaCC API - Docker Compose for Production
+
+version: '3.8'
+
+services:
+  chacc:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile
+    container_name: chacc-api
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_ENGINE=postgresql
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=chacc
+      - DATABASE_USER=chacc
+      - DATABASE_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required (32+ characters)}
+      
+      - DEVELOPMENT_MODE=False
+      - ENABLE_PLUGIN_HOT_RELOAD=False
+      - ENABLE_PLUGIN_DEPENDENCY_RESOLUTION=False
+      - PLUGIN_AUTO_DISCOVERY=False
+      - NO_RELOAD=True
+      
+      - AUTHENTICATION_DEFAULT_ADMIN_USERNAME=admin
+      - AUTHENTICATION_DEFAULT_ADMIN_PASSWORD=${ADMIN_PASSWORD:-ChangeMe123!}
+      
+      - LOG_LEVEL=INFO
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - chacc_modules:/app/modules_installed
+      - chacc_plugins:/app/plugins
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - chacc-network
+
+  db:
+    image: postgres:15-alpine
+    container_name: chacc-db
+    environment:
+      - POSTGRES_USER=chacc
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      - POSTGRES_DB=chacc
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chacc -d chacc"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - chacc-network
+    expose:
+      - "5432"
+
+volumes:
+  postgres_data:
+    driver: local
+  chacc_modules:
+    driver: local
+  chacc_plugins:
+    driver: local
+
+networks:
+  chacc-network:
+    driver: bridge

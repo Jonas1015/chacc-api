@@ -1,0 +1,29 @@
+# ChaCC API - Docker Compose for Development
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+version: '3.8'
+
+services:
+  chacc:
+    environment:
+      - DEVELOPMENT_MODE=True
+      - ENABLE_PLUGIN_HOT_RELOAD=True
+      - ENABLE_PLUGIN_DEPENDENCY_RESOLUTION=True
+      - PLUGIN_AUTO_DISCOVERY=True
+      
+      - DATABASE_ENGINE=sqlite
+      
+      - SECRET_KEY=dev-secret-key-for-local-testing-only-123
+      
+      - AUTHENTICATION_DEFAULT_ADMIN_USERNAME=admin
+      - AUTHENTICATION_DEFAULT_ADMIN_PASSWORD=admin123
+      
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ../../src:/app/src
+      - ../../plugins:/app/plugins
+      - ../../chacc_cli:/app/chacc_cli
+      - ../../main.py:/app/main.py
+      - ../../start_server.py:/app/start_server.py
+    restart: "no"
+    command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]

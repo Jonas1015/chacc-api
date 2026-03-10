@@ -6,10 +6,12 @@ from fastapi.concurrency import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
 from src.rate_limiter import limiter, rate_limit_exceeded_handler
 from src.modules import modules_router
+from src.health import health_router
 from src.database import ModuleRecord, initialize_database_models, get_db, run_automatic_migration
 from src.logger import configure_logging, LogLevels
 from src.core_services import BackboneContext
 from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR, ENABLE_PLUGIN_HOT_RELOAD
+from src.env_validator import validate_environment, ValidationError
 
 chacc_logger = configure_logging(log_level=LogLevels.DEBUG)
 
@@ -80,6 +82,12 @@ async def onStartupLifespan(app: FastAPI):
     FastAPI lifespan context manager for startup and shutdown events.
     """
     chacc_logger.info("Application startup initiated...")
+    
+    try:
+        validate_environment()
+    except ValidationError as e:
+        chacc_logger.critical(f"Environment validation failed: {e}")
+        raise RuntimeError(f"Cannot start application: {e}")
     
     backbone_context = BackboneContext(
         app=app,
@@ -157,3 +165,6 @@ async def read_root():
     return {"message": "Welcome to the ChaCC API Backbone! Check /docs for API modules."}
 
 app.include_router(modules_router)
+
+# Health check endpoints - must be registered before modules
+app.include_router(health_router)

@@ -4,10 +4,11 @@ from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
 from slowapi.errors import RateLimitExceeded
 from src.rate_limiter import limiter, rate_limit_exceeded_handler
-from src.modules import load_modules, modules_router
+from src.modules import modules_router
 from src.database import ModuleRecord, initialize_database_models, get_db, run_automatic_migration
 from src.logger import configure_logging, LogLevels
 from src.core_services import BackboneContext
+from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR
 
 chacc_logger = configure_logging(log_level=LogLevels.DEBUG)
 
@@ -69,7 +70,7 @@ async def run_backbone_tests():
         raise RuntimeError(f"Backbone tests failed. Application startup aborted.")
     except Exception as e:
         chacc_logger.error(f"Unexpected error running backbone tests: {e}")
-        raise RuntimeError(f"Backbone tests failed due to unexpected error. Application startup aborted.")
+        raise RuntimeError(f"Backbone tests failed due to unexpected error: {e}")
 
 
 @asynccontextmanager
@@ -105,7 +106,16 @@ async def onStartupLifespan(app: FastAPI):
 
     await run_backbone_tests()
 
-    await load_modules(app, backbone_context)
+    if DEVELOPMENT_MODE:
+        chacc_logger.info("=" * 60)
+        chacc_logger.info(f"DEVELOPMENT MODE: Loading plugins from {PLUGINS_DIR} directory")
+        chacc_logger.info("=" * 60)
+        from src.plugin_loader import load_plugins
+        await load_plugins(app, backbone_context)
+    else:
+        from src.plugin_loader import load_installed_modules
+        chacc_logger.info(f"PRODUCTION MODE: Loading modules from {MODULES_LOADED_DIR} directory")
+        await load_installed_modules(app, backbone_context)
     
     await run_automatic_migration()
     

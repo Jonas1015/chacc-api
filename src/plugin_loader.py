@@ -1,22 +1,21 @@
 """
-Plugin loading functionality for ChaCC API in development mode.
+Plugin loading functionality for ChaCC API.
 
-Uses the pure load_single_module function from module_loader.py
-for consistent behavior between development and production.
+Supports both:
+- Development mode: Load from plugins/ directory with hot reload
+- Production mode: Load from .modules_loaded with optional hot reload
 """
 
 import os
-import sys
 import json
-import logging
-import hashlib
-import time
-from typing import Dict, List, Any
+import asyncio
+from typing import Dict, List, Optional
 from fastapi import FastAPI
 
 from src.logger import configure_logging, LogLevels
 from src.constants import (
     PLUGINS_DIR, 
+    MODULES_LOADED_DIR,
     DEPENDENCY_CACHE_DIR, 
     DEVELOPMENT_MODE,
     ENABLE_PLUGIN_HOT_RELOAD,
@@ -28,19 +27,19 @@ from src.module_loader import load_single_module
 chacc_logger = configure_logging(log_level=LogLevels.INFO)
 
 
-class PluginState:
+class ModuleState:
     """
-    Tracks the state of loaded plugins for hot reload functionality.
+    Tracks the state of loaded modules for hot reload functionality.
     """
     def __init__(self):
-        self.plugin_file_hashes: Dict[str, str] = {}
+        self.file_hashes: Dict[str, str] = {}
         
-    def get_plugin_hash(self, plugin_path: str) -> str:
-        """Calculate a hash of all Python files in a plugin directory."""
+    def get_file_hash(self, module_path: str) -> str:
+        """Calculate a hash of all Python files in a module directory."""
         import hashlib
         hasher = hashlib.md5()
         
-        for root, dirs, files in os.walk(plugin_path):
+        for root, dirs, files in os.walk(module_path):
             dirs[:] = [d for d in dirs if not d.startswith('.') and d != '__pycache__']
             
             for file in sorted(files):
@@ -54,43 +53,63 @@ class PluginState:
         
         return hasher.hexdigest()
     
-    def should_reload(self, plugin_name: str, plugin_path: str) -> bool:
-        """Check if a plugin should be reloaded based on file changes."""
+    def should_reload(self, module_name: str, module_path: str) -> bool:
+        """Check if a module should be reloaded based on file changes."""
         if not ENABLE_PLUGIN_HOT_RELOAD:
             return False
             
-        current_hash = self.get_plugin_hash(plugin_path)
-        stored_hash = self.plugin_file_hashes.get(plugin_name)
+        if not os.path.exists(module_path):
+            return False
+            
+        current_hash = self.get_file_hash(module_path)
+        stored_hash = self.file_hashes.get(module_name)
         
         if stored_hash is None or current_hash != stored_hash:
-            self.plugin_file_hashes[plugin_name] = current_hash
+            self.file_hashes[module_name] = current_hash
             return True
             
         return False
-
-
-# Global plugin state
-_plugin_state = PluginState()
-
-
-def discover_plugins() -> Dict[str, Dict]:
-    """
-    Discover all plugins in the plugins directory.
-    """
-    plugins = {}
     
-    if not os.path.isdir(PLUGINS_DIR):
-        chacc_logger.warning(f"Plugins directory not found: {PLUGINS_DIR}")
-        return plugins
+    def track(self, module_name: str, module_path: str):
+        """Track a module for change detection."""
+        self.file_hashes[module_name] = self.get_file_hash(module_path)
+
+
+_module_state = ModuleState()
+
+
+def discover_modules_from_directory(directory: str) -> Dict[str, Dict]:
+    """
+    Discover all modules in a directory.
     
-    for entry in os.listdir(PLUGINS_DIR):
-        plugin_path = os.path.join(PLUGINS_DIR, entry)
+    Args:
+        directory: Path to the modules directory (e.g., plugins/ or .modules_loaded/)
         
-        if not os.path.isdir(plugin_path) or entry.startswith('.'):
+    Returns:
+        Dict mapping module_name -> module_info
+    """
+    modules = {}
+    
+    if not os.path.isdir(directory):
+        chacc_logger.warning(f"Modules directory not found: {directory}")
+        return modules
+    
+    for entry in os.listdir(directory):
+        module_path = os.path.join(directory, entry)
+        
+        if not os.path.isdir(module_path) or entry.startswith('.'):
             continue
         
-        # Look for module_meta.json
-        meta_path = os.path.join(plugin_path, "module_meta.json")
+        meta_path = os.path.join(module_path, "module_meta.json")
+        if not os.path.exists(meta_path):
+            for subentry in os.listdir(module_path):
+                subpath = os.path.join(module_path, subentry)
+                if os.path.isdir(subpath) and not subentry.startswith('.'):
+                    meta_path = os.path.join(subpath, "module_meta.json")
+                    if os.path.exists(meta_path):
+                        module_path = subpath
+                        break
+        
         if not os.path.exists(meta_path):
             chacc_logger.debug(f"Skipping {entry}: no module_meta.json")
             continue
@@ -99,37 +118,34 @@ def discover_plugins() -> Dict[str, Dict]:
             with open(meta_path, 'r') as f:
                 meta_data = json.load(f)
                 
-            plugin_name = meta_data.get('name', entry)
+            module_name = meta_data.get('name', entry)
             
-            # Find the source directory
-            source_dirs = [
-                e for e in os.listdir(plugin_path) 
-                if os.path.isdir(os.path.join(plugin_path, e)) and not e.startswith('.')
-            ]
-            
-            if not source_dirs:
-                continue
-            
-            # Use the first source directory as the module path
-            module_path = os.path.join(plugin_path, source_dirs[0])
-            
-            plugins[plugin_name] = {
-                'name': plugin_name,
-                'plugin_path': plugin_path,
+            modules[module_name] = {
+                'name': module_name,
                 'module_path': module_path,
                 'meta': meta_data,
             }
             
-            chacc_logger.info(f"Discovered plugin: {plugin_name}")
+            chacc_logger.debug(f"Discovered module: {module_name}")
             
         except Exception as e:
             chacc_logger.warning(f"Failed to read module_meta.json for {entry}: {e}")
     
-    return plugins
+    return modules
 
 
-async def resolve_plugin_dependencies(plugins: Dict[str, Dict], enabled_plugins: List[str]):
-    """Resolve dependencies for enabled plugins."""
+def discover_plugins() -> Dict[str, Dict]:
+    """Discover plugins from plugins directory."""
+    return discover_modules_from_directory(PLUGINS_DIR)
+
+
+def discover_installed_modules() -> Dict[str, Dict]:
+    """Discover installed modules from .modules_loaded directory."""
+    return discover_modules_from_directory(MODULES_LOADED_DIR)
+
+
+async def resolve_dependencies(modules: Dict[str, Dict], enabled_modules: List[str]):
+    """Resolve dependencies for enabled modules."""
     if not ENABLE_PLUGIN_DEPENDENCY_RESOLUTION:
         return
         
@@ -140,21 +156,23 @@ async def resolve_plugin_dependencies(plugins: Dict[str, Dict], enabled_plugins:
         with open(backbone_req_path, 'r') as f:
             requirements['backbone'] = f.read()
     
-    for plugin_name, plugin_info in plugins.items():
-        req_path = os.path.join(plugin_info['plugin_path'], 'requirements.txt')
+    for module_name, module_info in modules.items():
+        module_path = module_info['module_path']
+        module_root = os.path.dirname(module_path)
+        req_path = os.path.join(module_root, 'requirements.txt')
         if os.path.exists(req_path):
             with open(req_path, 'r') as f:
-                requirements[plugin_name] = f.read()
+                requirements[module_name] = f.read()
     
     enabled_requirements = {k: v for k, v in requirements.items() 
-                          if k in enabled_plugins or k == 'backbone'}
+                          if k in enabled_modules or k == 'backbone'}
     
     if enabled_requirements:
         try:
             from chacc import DependencyManager
             dm = DependencyManager(cache_dir=DEPENDENCY_CACHE_DIR, logger=chacc_logger)
             await dm.resolve_dependencies(enabled_requirements)
-            chacc_logger.info("Plugin dependencies resolved")
+            chacc_logger.info("Module dependencies resolved")
         except Exception as e:
             chacc_logger.warning(f"Dependency resolution failed: {e}")
 
@@ -162,94 +180,161 @@ async def resolve_plugin_dependencies(plugins: Dict[str, Dict], enabled_plugins:
 async def load_plugins(
     app: FastAPI,
     backbone_context,
-    only_plugins: List[str] = None,
-    exclude_plugins: List[str] = None
+    only_modules: List[str] = None,
+    exclude_modules: List[str] = None
 ):
     """
-    Load plugins from the plugins directory using the pure load_single_module function.
+    Load plugins from the plugins directory.
+    
+    Called when DEVELOPMENT_MODE=True
     """
     if not DEVELOPMENT_MODE and not PLUGIN_AUTO_DISCOVERY:
         return
     
-    chacc_logger.info("Discovering plugins...")
+    chacc_logger.info("Discovering plugins from plugins directory...")
     
-    plugins = discover_plugins()
-    if not plugins:
+    modules = discover_plugins()
+    if not modules:
         chacc_logger.info("No plugins found")
         return
     
-    # Filter plugins
-    plugins_to_load = []
-    for name in plugins:
-        if only_plugins and name not in only_plugins:
-            continue
-        if exclude_plugins and name in exclude_plugins:
-            continue
-        plugins_to_load.append(name)
+    await _load_modules(
+        app=app,
+        backbone_context=backbone_context,
+        modules=modules,
+        only_modules=only_modules,
+        exclude_modules=exclude_modules,
+        source="plugins"
+    )
+
+
+async def load_installed_modules(
+    app: FastAPI,
+    backbone_context,
+    only_modules: List[str] = None,
+    exclude_modules: List[str] = None
+):
+    f"""
+    Load installed modules from {MODULES_LOADED_DIR} directory.
     
-    if not plugins_to_load:
+    Called when DEVELOPMENT_MODE=False (production)
+    """
+    chacc_logger.info(f"Discovering installed modules from {MODULES_LOADED_DIR} directory...")
+    
+    modules = discover_installed_modules()
+    if not modules:
+        chacc_logger.info("No installed modules found")
         return
     
-    chacc_logger.info(f"Loading plugins: {plugins_to_load}")
+    await _load_modules(
+        app=app,
+        backbone_context=backbone_context,
+        modules=modules,
+        only_modules=only_modules,
+        exclude_modules=exclude_modules,
+        source=MODULES_LOADED_DIR
+    )
+
+
+async def _load_modules(
+    app: FastAPI,
+    backbone_context,
+    modules: Dict[str, Dict],
+    only_modules: List[str],
+    exclude_modules: List[str],
+    source: str
+):
+    """Internal function to load modules."""
+    modules_to_load = []
+    for name in modules:
+        if only_modules and name not in only_modules:
+            continue
+        if exclude_modules and name in exclude_modules:
+            continue
+        modules_to_load.append(name)
     
-    # Resolve dependencies
-    await resolve_plugin_dependencies(plugins, plugins_to_load)
+    if not modules_to_load:
+        return
     
-    # Load each plugin using pure function
-    for plugin_name in plugins_to_load:
-        plugin_info = plugins[plugin_name]
+    chacc_logger.info(f"Loading {len(modules_to_load)} modules from {source}: {modules_to_load}")
+    
+    await resolve_dependencies(modules, modules_to_load)
+    
+    for module_name in modules_to_load:
+        module_info = modules[module_name]
         
-        # Check for changes
-        if not _plugin_state.should_reload(plugin_name, plugin_info['module_path']):
-            chacc_logger.debug(f"Plugin '{plugin_name}' unchanged")
+        if not _module_state.should_reload(module_name, module_info['module_path']):
+            chacc_logger.debug(f"Module '{module_name}' unchanged, skipping")
             continue
         
-        chacc_logger.info(f"Loading plugin: {plugin_name}")
+        chacc_logger.info(f"Loading module: {module_name} from {source}")
         
         try:
-            # Use the pure function - pass all required data
             success = load_single_module(
-                module_name=plugin_name,
-                module_path=plugin_info['module_path'],
-                module_metadata=plugin_info['meta'],
+                module_name=module_name,
+                module_path=module_info['module_path'],
+                module_metadata=module_info['meta'],
                 app=app,
                 backbone_context=backbone_context
             )
             
             if success:
-                chacc_logger.info(f"Plugin '{plugin_name}' loaded successfully")
+                _module_state.track(module_name, module_info['module_path'])
+                chacc_logger.info(f"Module '{module_name}' loaded successfully")
             else:
-                chacc_logger.warning(f"Plugin '{plugin_name}' failed to load")
+                chacc_logger.warning(f"Module '{module_name}' failed to load")
                 
         except Exception as e:
-            chacc_logger.error(f"Error loading plugin '{plugin_name}': {e}", exc_info=True)
+            chacc_logger.error(f"Error loading module '{module_name}': {e}", exc_info=True)
     
-    chacc_logger.info("Plugin loading completed")
+    chacc_logger.info(f"Module loading from {source} completed")
 
 
-async def hot_reload_plugins(app: FastAPI, backbone_context):
-    """Check for and reload changed plugins."""
+async def hot_reload_modules(
+    app: FastAPI,
+    backbone_context,
+    source: str = None
+):
+    """
+    Check for and reload changed modules.
+    
+    Args:
+        app: FastAPI application
+        backbone_context: Backbone context
+        source: Which source to check - "plugins", "modules_loaded", or None for both
+    """
     if not ENABLE_PLUGIN_HOT_RELOAD:
         return
     
-    plugins = discover_plugins()
+    if source == PLUGINS_DIR or source is None:
+        if DEVELOPMENT_MODE or PLUGIN_AUTO_DISCOVERY:
+            plugins = discover_plugins()
+            for module_name, module_info in plugins.items():
+                if _module_state.should_reload(module_name, module_info['module_path']):
+                    chacc_logger.info(f"Hot reloading plugin: {module_name}")
+                    try:
+                        load_single_module(
+                            module_name=module_name,
+                            module_path=module_info['module_path'],
+                            module_metadata=module_info['meta'],
+                            app=app,
+                            backbone_context=backbone_context
+                        )
+                    except Exception as e:
+                        chacc_logger.error(f"Error hot reloading plugin '{module_name}': {e}")
     
-    for plugin_name, plugin_info in plugins.items():
-        if _plugin_state.should_reload(plugin_name, plugin_info['module_path']):
-            chacc_logger.info(f"Hot reloading plugin: {plugin_name}")
-            
-            try:
-                load_single_module(
-                    module_name=plugin_name,
-                    module_path=plugin_info['module_path'],
-                    module_metadata=plugin_info['meta'],
-                    app=app,
-                    backbone_context=backbone_context
-                )
-            except Exception as e:
-                chacc_logger.error(f"Error hot reloading plugin '{plugin_name}': {e}")
-
-
-def is_development_mode() -> bool:
-    """Check if running in development mode."""
-    return DEVELOPMENT_MODE
+    if source == MODULES_LOADED_DIR or source is None:
+        installed = discover_installed_modules()
+        for module_name, module_info in installed.items():
+            if _module_state.should_reload(module_name, module_info['module_path']):
+                chacc_logger.info(f"Hot reloading module: {module_name}")
+                try:
+                    load_single_module(
+                        module_name=module_name,
+                        module_path=module_info['module_path'],
+                        module_metadata=module_info['meta'],
+                        app=app,
+                        backbone_context=backbone_context
+                    )
+                except Exception as e:
+                    chacc_logger.error(f"Error hot reloading module '{module_name}': {e}")

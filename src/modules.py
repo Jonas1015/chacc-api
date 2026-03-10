@@ -89,6 +89,12 @@ async def get_current_user_optional(request: Request) -> Optional[object]:
         )
 
 
+@modules_router.post("/modules", dependencies=[])
+async def install_chacc_module_endpoint_no_slash(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: Optional[object] = Depends(get_current_user_optional)):
+    """Same as POST /modules/ but without trailing slash."""
+    return await install_chacc_module_endpoint(file, db, current_user)
+
+
 @modules_router.post("/modules/", dependencies=[])
 async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: Optional[object] = Depends(get_current_user_optional)):
     """
@@ -173,6 +179,12 @@ async def install_chacc_module_endpoint(file: UploadFile = File(...), db: Sessio
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Installation failed: {e}"
         )
+
+
+@modules_router.get("/modules")
+async def get_modules_endpoint_no_slash(db: Session = Depends(get_db), current_user: Optional[object] = Depends(get_current_user_optional)):
+    """Same as GET /modules/ but without trailing slash."""
+    return await get_modules_endpoint(db, current_user)
 
 
 @modules_router.get("/modules/")

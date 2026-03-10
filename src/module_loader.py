@@ -16,6 +16,7 @@ import shutil
 import json
 import logging
 import zipfile
+import inspect
 from typing import Dict, List, Tuple
 from fastapi import FastAPI
 
@@ -333,7 +334,7 @@ def sync_database_with_filesystem(chacc_to_module_name: Dict[str, str], existing
                 shutil.rmtree(loaded_module_dir)
 
 
-def load_single_module(
+async def load_single_module(
     module_name: str,
     module_path: str,
     module_metadata: dict,
@@ -345,8 +346,9 @@ def load_single_module(
     """
     Load a single module into the application.
     
-    This is a pure function - no database records or file system operations.
+    This is an async function - no database records or file system operations.
     All required data is passed as parameters.
+    Supports both sync and async setup functions.
     
     Args:
         module_name: Name of the module
@@ -370,7 +372,6 @@ def load_single_module(
 
     chacc_logger.info(f"Module path confirmed: {module_path}")
     
-    # Discover models if models directory exists
     models_dir = os.path.join(module_path, "models")
     if os.path.isdir(models_dir):
         init_file = os.path.join(models_dir, "__init__.py")
@@ -433,7 +434,10 @@ def load_single_module(
 
     chacc_logger.info(f"Found setup function: {func_name}")
 
-    plugin_router = setup_func(backbone_context)
+    if inspect.iscoroutinefunction(setup_func):
+        plugin_router = await setup_func(backbone_context)
+    else:
+        plugin_router = setup_func(backbone_context)
 
     if plugin_router and isinstance(plugin_router, APIRouter):
         prefix = base_path_prefix or module_metadata.get("base_path_prefix", f"/{module_name}")
@@ -587,7 +591,7 @@ async def load_modules(
                 module_path = os.path.join(MODULES_LOADED_DIR, record.name)
                 metadata = record.meta_data if record.meta_data else {}
                 
-                load_single_module(
+                await load_single_module(
                     module_name=record.name,
                     module_path=module_path,
                     module_metadata=metadata,

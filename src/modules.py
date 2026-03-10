@@ -72,7 +72,7 @@ async def get_current_user_optional(request: Request) -> Optional[object]:
         )
     
     try:
-        scheme, credentials = auth_header.split()
+        scheme, credentials = auth_header.split(" ")
         if scheme.lower() != 'bearer':
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

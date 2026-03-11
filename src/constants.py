@@ -21,6 +21,13 @@ ENABLE_PLUGIN_HOT_RELOAD = config("ENABLE_PLUGIN_HOT_RELOAD", default=True, cast
 ENABLE_PLUGIN_DEPENDENCY_RESOLUTION = config("ENABLE_PLUGIN_DEPENDENCY_RESOLUTION", default=True, cast=bool)
 PLUGIN_AUTO_DISCOVERY = config("PLUGIN_AUTO_DISCOVERY", default=True, cast=bool)
 
+# Redis Configuration
+REDIS_ENABLED = config("REDIS_ENABLED", default=True, cast=bool)
+REDIS_HOST = config("REDIS_HOST", default="localhost", cast=str)
+REDIS_PORT = config("REDIS_PORT", default=6379, cast=int)
+REDIS_DB = config("REDIS_DB", default=0, cast=int)
+REDIS_PASSWORD = config("REDIS_PASSWORD", default=None, cast=str)
+
 DATABASE_ENGINE = config("DATABASE_ENGINE", default="sqlite", cast=str)
 DATABASE_NAME = config("DATABASE_NAME", default="chaccapidb")
 DATABASE_USER = config("DATABASE_USER", default="chacc")

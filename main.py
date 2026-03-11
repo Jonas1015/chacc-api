@@ -9,11 +9,12 @@ from src.modules import modules_router
 from src.health import health_router
 from src.database import ModuleRecord, initialize_database_models, get_db
 from src.logger import configure_logging, LogLevels
-from src.core_services import BackboneContext
+from src.chacc_api.core import BackboneContext
 from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR, ENABLE_PLUGIN_HOT_RELOAD
 from src.env_validator import validate_environment, ValidationError
 
 from src.migration.runner import run_migration
+from src.chacc_api.services import RedisService
 
 chacc_logger = configure_logging(log_level=LogLevels.DEBUG)
 
@@ -85,6 +86,9 @@ async def onStartupLifespan(app: FastAPI):
     """
     chacc_logger.info("Application startup initiated...")
     
+    # Initialize Redis service
+    redis_service = RedisService()
+    
     try:
         validate_environment()
     except ValidationError as e:
@@ -97,6 +101,19 @@ async def onStartupLifespan(app: FastAPI):
         logger=chacc_logger,
         db_session_factory=get_db
     )
+    
+    # Try to initialize Redis connection and register service
+    try:
+        redis_client = await redis_service.get_client()
+        if redis_client:
+            backbone_context.register_service("redis", redis_service)
+            chacc_logger.info("Redis service registered in backbone context.")
+        elif redis_service.connection_error:
+            chacc_logger.warning(f"Redis connection failed: {redis_service.connection_error}. Continuing without Redis.")
+        else:
+            chacc_logger.info("Redis is disabled. Continuing without Redis.")
+    except Exception as e:
+        chacc_logger.warning(f"Failed to initialize Redis service: {e}. Continuing without Redis.")
     
     app.state.backbone_context = backbone_context
 
@@ -135,6 +152,17 @@ async def onStartupLifespan(app: FastAPI):
     await run_migration()
     
     yield
+    
+    # Shutdown: Close Redis connection gracefully
+    try:
+        redis_service = backbone_context.get_service("redis")
+        if redis_service and redis_service.is_connected:
+            await redis_service.close()
+            chacc_logger.info("Redis connection closed gracefully.")
+        else:
+            chacc_logger.debug("Redis service not available or not connected. Skipping cleanup.")
+    except Exception as e:
+        chacc_logger.warning(f"Error during Redis shutdown: {e}")
     
     chacc_logger.info("Application shutting down.")
     

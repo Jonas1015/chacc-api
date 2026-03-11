@@ -120,15 +120,17 @@ async def onStartupLifespan(app: FastAPI):
     await run_backbone_tests()
 
     if DEVELOPMENT_MODE:
-        chacc_logger.info("=" * 60)
+        chacc_logger.info("=" * 65)
         chacc_logger.info(f"DEVELOPMENT MODE: Loading plugins from {PLUGINS_DIR} directory")
-        chacc_logger.info("=" * 60)
-        from src.plugin_loader import load_plugins
-        await load_plugins(app, backbone_context)
+        chacc_logger.info("=" * 65)
+        from src.plugin_loader import load_dev_modules
+        await load_dev_modules(app, backbone_context)
     else:
-        from src.plugin_loader import load_installed_modules
+        from src.module_loader import load_modules
+        chacc_logger.info("=" * 65)
         chacc_logger.info(f"PRODUCTION MODE: Loading modules from {MODULES_LOADED_DIR} directory")
-        await load_installed_modules(app, backbone_context)
+        chacc_logger.info("=" * 65)
+        await load_modules(app, backbone_context)
     
     await run_migration()
     

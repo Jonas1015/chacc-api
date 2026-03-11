@@ -275,7 +275,6 @@ def unzip_modules(modules_to_process: List[Tuple[str, str, float, bool]], existi
             os.utime(loaded_module_dir, (chacc_mtime, chacc_mtime))
         chacc_logger.info(f"Unzipping for '{module_name}' completed.")
 
-        # Update DB record with metadata
         meta_file_path = os.path.join(loaded_module_dir, "module_meta.json")
         if os.path.exists(meta_file_path):
             with open(meta_file_path, 'r') as f:
@@ -296,12 +295,18 @@ def unzip_modules(modules_to_process: List[Tuple[str, str, float, bool]], existi
                 chacc_logger.info(f"New module '{module_name}' found. Created new DB record.")
             else:
                 record = existing_records[module_name]
-                if (record.display_name != meta_data.get("display_name", record.display_name) or
-                   record.version != meta_data.get("version", record.version) or
-                   record.author != meta_data.get("author", record.author) or
-                   record.description != meta_data.get("description", record.description) or
-                   record.base_path_prefix != meta_data.get("base_path_prefix", record.base_path_prefix)):
+                
+                current_meta_data = record.meta_data or {}
+                meta_data_changed = (
+                    record.display_name != meta_data.get("display_name", record.display_name) or
+                    record.version != meta_data.get("version", record.version) or
+                    record.author != meta_data.get("author", record.author) or
+                    record.description != meta_data.get("description", record.description) or
+                    record.base_path_prefix != meta_data.get("base_path_prefix", record.base_path_prefix) or
+                    current_meta_data != meta_data
+                )
 
+                if meta_data_changed:
                     record.display_name = meta_data.get("display_name", record.display_name)
                     record.version = meta_data.get("version", record.version)
                     record.author = meta_data.get("author", record.author)
@@ -589,7 +594,13 @@ async def load_modules(
         for record in updated_records:
             try:
                 module_path = os.path.join(MODULES_LOADED_DIR, record.name)
-                metadata = record.meta_data if record.meta_data else {}
+                
+                meta_file_path = os.path.join(module_path, "module_meta.json")
+                if os.path.exists(meta_file_path):
+                    with open(meta_file_path, 'r') as f:
+                        metadata = json.load(f)
+                else:
+                    metadata = record.meta_data if record.meta_data else {}
                 
                 await load_single_module(
                     module_name=record.name,

@@ -176,7 +176,7 @@ async def resolve_dependencies(modules: Dict[str, Dict], enabled_modules: List[s
             chacc_logger.warning(f"Dependency resolution failed: {e}")
 
 
-async def load_plugins(
+async def load_dev_modules(
     app: FastAPI,
     backbone_context,
     only_modules: List[str] = None,
@@ -204,34 +204,6 @@ async def load_plugins(
         only_modules=only_modules,
         exclude_modules=exclude_modules,
         source="plugins"
-    )
-
-
-async def load_installed_modules(
-    app: FastAPI,
-    backbone_context,
-    only_modules: List[str] = None,
-    exclude_modules: List[str] = None
-):
-    f"""
-    Load installed modules from {MODULES_LOADED_DIR} directory.
-    
-    Called when DEVELOPMENT_MODE=False (production)
-    """
-    chacc_logger.info(f"Discovering installed modules from {MODULES_LOADED_DIR} directory...")
-    
-    modules = discover_installed_modules()
-    if not modules:
-        chacc_logger.info("No installed modules found")
-        return
-    
-    await _load_modules(
-        app=app,
-        backbone_context=backbone_context,
-        modules=modules,
-        only_modules=only_modules,
-        exclude_modules=exclude_modules,
-        source=MODULES_LOADED_DIR
     )
 
 

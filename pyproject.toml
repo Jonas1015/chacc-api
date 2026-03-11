@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chacc-api"
+version = "1.0.0"
+description = "ChaCC API - A modular FastAPI application for extensible APIs"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "ChaCC Team", email = "team@chacc.io"}
+]
+keywords = ["api", "fastapi", "modular", "plugin", "chacc"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "alembic",
+    "psycopg2-binary",
+    "slowapi",
+    "python-decouple",
+    "pyjwt",
+    "argon2-cffi",
+    "python-multipart",
+    "email-validator",
+    "colorlog",
+    "chacc-dependency-manager",
+    "redis",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+    "black",
+    "ruff",
+    "mypy",
+]
+
+[project.scripts]
+chacc = "chacc_cli.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/chacc-io/chacc-api"
+Documentation = "https://chacc-api.readthedocs.io"
+Repository = "https://github.com/chacc-io/chacc-api"
+Issues = "https://github.com/chacc-io/chacc-api/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src", "chacc_cli" = "chacc_cli", "chacc_api" = "chacc_api"}
+
+packages = ["chacc_cli", "chacc_api"]
+
+[tool.setuptools.package-data]
+chacc_cli = ["templates/*.template"]
+chacc_api = []
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false

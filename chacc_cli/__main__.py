@@ -40,17 +40,26 @@ def main():
                           "  CHACC_DEPLOY_API_KEY=optional-api-key\n" \
                           "  CHACC_DEPLOY_TIMEOUT=30"
 
-    server_parser = subparsers.add_parser("server", help="Run the ChaCC development server.")
-    server_parser.add_argument("--modules-dir", type=str, default="plugins",
+    server_cmd_parser = subparsers.add_parser("server", help="Run the ChaCC development server.")
+    server_cmd_parser.add_argument("--modules-dir", type=str, default="plugins",
                               help="Directory containing ChaCC modules. Defaults to 'plugins/'.")
-    server_parser.add_argument("--host", type=str, default="0.0.0.0",
+    server_cmd_parser.add_argument("--host", type=str, default="0.0.0.0",
                               help="Host to bind the server to. Defaults to '0.0.0.0'.")
-    server_parser.add_argument("--port", type=int, default=8000,
+    server_cmd_parser.add_argument("--port", type=int, default=8000,
                               help="Port to bind the server to. Defaults to 8000.")
-    server_parser.add_argument("--debug", action="store_true",
+    server_cmd_parser.add_argument("--debug", action="store_true",
                               help="Enable debug mode.")
-    server_parser.add_argument("--auto-reload", action="store_true",
+    server_cmd_parser.add_argument("--auto-reload", action="store_true",
                               help="Enable auto-reload for development.")
+
+    run_parser = subparsers.add_parser("run", help="Run the ChaCC server.")
+    run_subparsers = run_parser.add_subparsers(dest="run_subcommand", help="Run subcommands")
+
+    run_server_parser = run_subparsers.add_parser("server", help="Run the ChaCC server.")
+    run_server_parser.add_argument("--dev", action="store_true",
+                          help="Run in development mode with auto-reload (uses uvicorn_config.py).")
+    run_server_parser.add_argument("--debug", action="store_true",
+                          help="Enable debug mode.")
 
     args = parser.parse_args()
 
@@ -60,30 +69,32 @@ def main():
         build_module_chacc(args.module_source_dir, args.output_filename)
     elif args.command == "deploy":
         deploy_module(args.chacc_file)
-    elif args.command == "server":
-        # Use the existing main.py with development settings
-        env = os.environ.copy()
-        if args.debug:
-            env["CHACC_DEBUG"] = "true"
+    
+    elif args.command == "run":
+        if args.run_subcommand == "server":
+            if args.dev:
+                env = os.environ.copy()
+                if args.debug:
+                    env["CHACC_DEBUG"] = "true"
 
-        cmd = [
-            sys.executable, "-m", "uvicorn",
-            "main:app",
-            "--host", args.host,
-            "--port", str(args.port),
-        ]
-
-        if args.auto_reload:
-            cmd.extend(["--reload", "--reload-dir", args.modules_dir])
-
-        if args.debug:
-            cmd.append("--log-level")
-            cmd.append("debug")
-
-        try:
-            subprocess.run(cmd, env=env)
-        except KeyboardInterrupt:
-            print("\nShutting down ChaCC server...")
+                cmd = [sys.executable, "uvicorn_config.py"]
+                try:
+                    subprocess.run(cmd, env=env)
+                except KeyboardInterrupt:
+                    print("\nShutting down ChaCC server...")
+            else:
+                cmd = [sys.executable, "start_server.py"]
+                try:
+                    subprocess.run(cmd)
+                except KeyboardInterrupt:
+                    print("\nShutting down ChaCC server...")
+        elif args.run_subcommand is None:
+            print("Error: 'run' command requires a subcommand. Use 'chacc run server'.")
+            run_parser.print_help()
+            sys.exit(1)
+        else:
+            run_parser.print_help()
+            sys.exit(1)
     else:
         parser.print_help()
 

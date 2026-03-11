@@ -1,8 +1,8 @@
 """
-Backward compatibility re-exports from chacc_api.
+Backward compatibility re-exports for services.
 """
 
-# Re-export from new location for backward compatibility
-from src.chacc_api.services import RedisService
+# Re-export from canonical location
+from src.redis_service import RedisService
 
 __all__ = ["RedisService"]

@@ -1,5 +1,4 @@
 import asyncio
-import subprocess
 import sys
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
@@ -9,12 +8,12 @@ from src.modules import modules_router
 from src.health import health_router
 from src.database import ModuleRecord, initialize_database_models, get_db
 from src.logger import configure_logging, LogLevels
-from src.chacc_api.core import BackboneContext
+from src.core_services import BackboneContext
 from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR, ENABLE_PLUGIN_HOT_RELOAD
 from src.env_validator import validate_environment, ValidationError
 
 from src.migration.runner import run_migration
-from src.chacc_api.services import RedisService
+from src.redis_service import RedisService
 
 chacc_logger = configure_logging(log_level=LogLevels.DEBUG)
 
@@ -26,16 +25,21 @@ async def run_backbone_tests():
     """
     chacc_logger.info("Running backbone unit tests...")
     try:
-        result = subprocess.run([
+        proc = await asyncio.create_subprocess_exec(
             sys.executable, "-m", "pytest", "tests/test_backbone.py",
-            "-v", "--tb=short", "--no-header"
-        ], capture_output=True, text=True, cwd=".")
+            "-v", "--tb=short", "--no-header",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        result_stdout = stdout.decode() if stdout else ""
+        result_stderr = stderr.decode() if stderr else ""
 
         passed_tests = []
         failed_tests = []
 
-        if result.stdout:
-            lines = result.stdout.strip().split('\n')
+        if result_stdout:
+            lines = result_stdout.strip().split('\n')
             for line in lines:
                 line = line.strip()
                 if 'PASSED' in line:
@@ -43,14 +47,14 @@ async def run_backbone_tests():
                 elif 'FAILED' in line or 'ERROR' in line:
                     failed_tests.append(line)
 
-        if result.returncode == 0:
+        if proc.returncode == 0:
             chacc_logger.info(f"All backbone tests passed successfully ({len(passed_tests)} tests)")
             if passed_tests:
                 chacc_logger.info("Passed tests:")
                 for test in passed_tests:
                     chacc_logger.info(f"  ✓ {test}")
         else:
-            chacc_logger.error(f"Backbone tests failed with return code {result.returncode}")
+            chacc_logger.error(f"Backbone tests failed with return code {proc.returncode}")
 
             if passed_tests:
                 chacc_logger.info(f"Passed tests ({len(passed_tests)}):")
@@ -63,17 +67,14 @@ async def run_backbone_tests():
                     chacc_logger.error(f"  ✗ {test}")
             else:
                 chacc_logger.error("Test output:")
-                if result.stdout:
-                    chacc_logger.error(result.stdout)
+                if result_stdout:
+                    chacc_logger.error(result_stdout)
 
-            if result.stderr:
-                chacc_logger.error(f"Test stderr: {result.stderr}")
+            if result_stderr:
+                chacc_logger.error(f"Test stderr: {result_stderr}")
 
             raise RuntimeError(f"Backbone tests failed ({len(failed_tests)} failed, {len(passed_tests)} passed). Application startup aborted.")
 
-    except subprocess.CalledProcessError as e:
-        chacc_logger.error(f"Error running backbone tests: {e}")
-        raise RuntimeError(f"Backbone tests failed. Application startup aborted.")
     except Exception as e:
         chacc_logger.error(f"Unexpected error running backbone tests: {e}")
         raise RuntimeError(f"Backbone tests failed due to unexpected error: {e}")
@@ -86,7 +87,6 @@ async def onStartupLifespan(app: FastAPI):
     """
     chacc_logger.info("Application startup initiated...")
     
-    # Initialize Redis service
     redis_service = RedisService()
     
     try:
@@ -102,7 +102,6 @@ async def onStartupLifespan(app: FastAPI):
         db_session_factory=get_db
     )
     
-    # Try to initialize Redis connection and register service
     try:
         redis_client = await redis_service.get_client()
         if redis_client:
@@ -153,7 +152,6 @@ async def onStartupLifespan(app: FastAPI):
     
     yield
     
-    # Shutdown: Close Redis connection gracefully
     try:
         redis_service = backbone_context.get_service("redis")
         if redis_service and redis_service.is_connected:
@@ -181,7 +179,6 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.state.loaded_modules = {}
 app.state.mounted_routers = {}
 
-# Store reference to backbone context for authentication dependency
 app.state.backbone_context = None
 
 @app.get("/",
@@ -196,7 +193,5 @@ async def read_root():
     """
     return {"message": "Welcome to the ChaCC API Backbone! Check /docs for API modules."}
 
-app.include_router(modules_router)
-
-# Health check endpoints - must be registered before modules
 app.include_router(health_router)
+app.include_router(modules_router)

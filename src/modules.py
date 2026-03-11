@@ -36,7 +36,7 @@ from src.module_loader import (
 chacc_logger = configure_logging(log_level=LogLevels.INFO)
 
 
-modules_router = APIRouter()
+modules_router = APIRouter(tags=["Core"])
 
 
 async def get_current_user_optional(request: Request) -> Optional[object]:

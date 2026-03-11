@@ -7,11 +7,13 @@ from slowapi.errors import RateLimitExceeded
 from src.rate_limiter import limiter, rate_limit_exceeded_handler
 from src.modules import modules_router
 from src.health import health_router
-from src.database import ModuleRecord, initialize_database_models, get_db, run_automatic_migration
+from src.database import ModuleRecord, initialize_database_models, get_db
 from src.logger import configure_logging, LogLevels
 from src.core_services import BackboneContext
 from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR, ENABLE_PLUGIN_HOT_RELOAD
 from src.env_validator import validate_environment, ValidationError
+
+from src.migration.runner import run_migration
 
 chacc_logger = configure_logging(log_level=LogLevels.DEBUG)
 
@@ -111,7 +113,7 @@ async def onStartupLifespan(app: FastAPI):
         pass
 
     if not modules_table_exists:
-        await run_automatic_migration()
+        await run_migration()
 
         print("First migration completed. Running backbone tests before loading modules...")
 
@@ -128,7 +130,7 @@ async def onStartupLifespan(app: FastAPI):
         chacc_logger.info(f"PRODUCTION MODE: Loading modules from {MODULES_LOADED_DIR} directory")
         await load_installed_modules(app, backbone_context)
     
-    await run_automatic_migration()
+    await run_migration()
     
     yield
     

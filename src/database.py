@@ -11,17 +11,15 @@ from alembic.runtime.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.autogenerate import compare_metadata
 
-from src.constants import DATABASE_ENGINE, DATABASE_HOST, DATABASE_NAME, DATABASE_PASSWORD, DATABASE_PORT, DATABASE_USER
+from src.constants import DATABASE_ENGINE, DATABASE_URL
 from src.logger import LogLevels, configure_logging
 from src.core_services import BackboneContext
 
 chacc_logger = configure_logging(log_level=LogLevels.INFO)
 
 if DATABASE_ENGINE == "postgresql":
-    DATABASE_URL = f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
     engine = create_engine(DATABASE_URL)
 else:
-    DATABASE_URL = "sqlite:///./opentz.db"
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

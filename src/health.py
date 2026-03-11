@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from src.database import get_db, engine
 from src.logger import configure_logging, LogLevels
 from src.constants import DEVELOPMENT_MODE
+from sqlalchemy import text
 
 chacc_logger = configure_logging(log_level=LogLevels.INFO)
 
@@ -57,7 +58,7 @@ async def readiness_check(db: Session = Depends(get_db)):
     }
     
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         checks["database"] = "ok"
     except Exception as e:
         chacc_logger.error(f"Database health check failed: {e}")

@@ -6,8 +6,7 @@ psycopg2-binary
 slowapi
 python-decouple
 pyjwt
-passlib
-bcrypt
+argon2-cffi
 python-multipart
 email-validator
 colorlog

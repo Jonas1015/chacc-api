@@ -60,7 +60,7 @@ class ChaCCDependencyManager:
             if modules_requirements:
                 await self.dm.resolve_dependencies(modules_requirements)
             else:
-                await self.dm.resolve_dependencies()  # Auto-discover
+                await self.dm.resolve_dependencies()
 
         finally:
             db.close()

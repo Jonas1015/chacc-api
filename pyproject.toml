@@ -10,7 +10,7 @@ readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-    {name = "ChaCC Team", email = "team@chacc.io"}
+    {name = "Jonas G Mwambimbi", email = "jonasgeorge1015@gmail.com"}
 ]
 keywords = ["api", "fastapi", "modular", "plugin", "chacc"]
 classifiers = [
@@ -57,8 +57,8 @@ chacc = "chacc_cli.__main__:main"
 [project.urls]
 Homepage = "https://github.com/chacc-io/chacc-api"
 Documentation = "https://chacc-api.readthedocs.io"
-Repository = "https://github.com/chacc-io/chacc-api"
-Issues = "https://github.com/chacc-io/chacc-api/issues"
+Repository = "https://github.com/jonas1015/chacc-api"
+Issues = "https://github.com/jonas1015/chacc-api/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src", "chacc_cli" = "chacc_cli", "chacc_api" = "chacc_api"}

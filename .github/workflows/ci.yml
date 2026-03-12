@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system -e .
+          uv pip install --system -e .[dev]
+
+      - name: Run linters
+        run: |
+          uv pip install --system black ruff mypy
+          black --check .
+          ruff check .
+          mypy src chacc_api chacc_cli --ignore-missing-imports || true
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --tb=short
+
+  build-cli:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install build
+        run: uv pip install --system build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package
+        run: |
+          uv pip install --system twine
+          twine check dist/*

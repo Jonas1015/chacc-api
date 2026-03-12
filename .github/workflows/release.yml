@@ -152,7 +152,6 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.tags }}
             ${{ inputs.docker_tag != '' && format('chacc-api:{0}', inputs.docker_tag) || '' }}
-            ${{ inputs.docker_tag != '' && format('ghcr.io/${{ github.repository }}:{0}', inputs.docker_tag) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
 
@@ -205,6 +204,5 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.tags }}
             ${{ inputs.docker_tag != '' && format('chacc-api:{0}', inputs.docker_tag) || '' }}
-            ${{ inputs.docker_tag != '' && format('ghcr.io/${{ github.repository }}:{0}', inputs.docker_tag) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64

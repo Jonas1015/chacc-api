@@ -25,7 +25,7 @@ import json
 import os
 import shutil
 from fastapi.testclient import TestClient
-from main import app
+from chacc_api.server.main import app
 
 
 @pytest.fixture
@@ -38,7 +38,6 @@ def client():
 def cleanup_test_modules():
     """Clean up test modules after each test."""
     yield
-    # Clean up test modules created during tests
     test_module_path = ".modules_loaded/test_module"
     if os.path.exists(test_module_path):
         shutil.rmtree(test_module_path)

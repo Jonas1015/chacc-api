@@ -10,7 +10,7 @@ from src.health import health_router
 from src.database import ModuleRecord, initialize_database_models, get_db
 from src.logger import configure_logging, LogLevels
 from src.core_services import BackboneContext
-from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR
+from src.constants import DEVELOPMENT_MODE, MODULES_LOADED_DIR, PLUGINS_DIR, BASE_DIR
 from src.env_validator import validate_environment, ValidationError
 
 from src.migration.runner import run_migration
@@ -25,8 +25,7 @@ async def run_backbone_tests():
     Raises RuntimeError if tests fail to prevent app startup.
     Only runs if tests directory exists in CWD.
     """
-    # Check if tests exist in CWD - skip if not a development install
-    tests_path = os.path.join(os.getcwd(), "tests", "test_backbone.py")
+    tests_path = os.path.join(BASE_DIR, "tests", "test_backbone.py")
     if not os.path.exists(tests_path):
         chacc_logger.info("No backbone tests found in CWD. Skipping tests (not a development install).")
         return
@@ -34,7 +33,7 @@ async def run_backbone_tests():
     chacc_logger.info("Running backbone unit tests...")
     try:
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-m", "pytest", "tests/test_backbone.py",
+            sys.executable, "-m", "pytest", f"{BASE_DIR}/tests/test_backbone.py",
             "-v", "--tb=short", "--no-header",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

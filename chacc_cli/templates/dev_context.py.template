@@ -81,7 +81,7 @@ def run_module_standalone():
     module_router = setup_plugin(context)
 
     # Create standalone app
-    app = FastAPI(title="{{module_name_title}} Module - Standalone")
+    app = FastAPI(title="{{module_name_pascal}} Module - Standalone")
 
     # Mount the module router
     app.include_router(module_router, prefix="/{{module_name}}")

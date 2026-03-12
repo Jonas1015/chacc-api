@@ -16,6 +16,33 @@ cli_logger = configure_logging(log_level=LogLevels.INFO)
 TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
 
 
+def to_pascal_case(name: str) -> str:
+    """Convert a name to PascalCase (e.g., 'test_module' -> 'TestModule')."""
+    return name.replace('_', ' ').replace('-', ' ').title().replace(' ', '')
+
+
+def validate_module_name(module_name: str) -> str:
+    """
+    Validate and clean module name.
+    - Converts to lowercase
+    - Replaces spaces and hyphens with underscores
+    - Returns cleaned name
+    Raises ValueError if name is invalid.
+    """
+    if not module_name:
+        raise ValueError("Module name cannot be empty")
+    
+    cleaned = module_name.lower().replace(' ', '_').replace('-', '_')
+    
+    if not cleaned.replace('_', '').isalnum():
+        raise ValueError("Module name can only contain letters, numbers, underscores, hyphens, and spaces")
+    
+    if cleaned[0].isdigit():
+        raise ValueError("Module name cannot start with a number")
+    
+    return cleaned
+
+
 def load_template(template_name: str, replacements: dict = None) -> str:
     """
     Load a template file and optionally replace placeholders.
@@ -46,6 +73,8 @@ def load_template(template_name: str, replacements: dict = None) -> str:
             content = content.replace(snake_placeholder, str(value).replace('-', '_'))
             upper_placeholder = "{{" + key + "_upper}}"
             content = content.replace(upper_placeholder, str(value).upper())
+            pascal_placeholder = "{{" + key + "_pascal}}"
+            content = content.replace(pascal_placeholder, to_pascal_case(str(value)))
     
     return content
 
@@ -54,24 +83,35 @@ def create_module_scaffold(module_name: str, output_dir: str):
     """
     Creates the basic folder structure and template files for a new ChaCC API module.
     Includes comprehensive testing architecture and development tools.
+    
+    Validates module name and converts to appropriate formats for different uses.
     """
-    module_root_dir = os.path.join(output_dir, module_name)
-    module_code_dir = os.path.join(module_root_dir, f"{module_name}_src")
-    module_tests_dir = os.path.join(module_root_dir, f"{module_name}_src", "tests")
+    try:
+        clean_module_name = validate_module_name(module_name)
+    except ValueError as e:
+        cli_logger.error(f"Error: {e}")
+        return
+    
+    module_name_pascal = to_pascal_case(clean_module_name)
+    
+    module_root_dir = os.path.join(output_dir, clean_module_name)
+    module_code_dir = os.path.join(module_root_dir, f"{clean_module_name}_src")
+    module_tests_dir = os.path.join(module_root_dir, f"{clean_module_name}_src", "tests")
 
     if os.path.exists(module_root_dir):
         cli_logger.error(f"Error: Module directory '{module_root_dir}' already exists. Please choose a different name or remove it.")
         return
 
-    cli_logger.info(f"Creating new module '{module_name}' in '{module_root_dir}'...")
+    cli_logger.info(f"Creating new module '{clean_module_name}' in '{module_root_dir}'...")
 
     replacements = {
-        "module_name": module_name,
-        "module_name_title": module_name.replace('_', ' ').title(),
-        "module_name_upper": module_name.upper(),
-        "module_description": f"A new ChaCC API module providing {module_name.replace('_', ' ')} functionality.",
+        "module_name": clean_module_name,
+        "module_name_pascal": module_name_pascal,
+        "module_name_title": clean_module_name.replace('_', ' ').title(),
+        "module_name_upper": clean_module_name.upper(),
+        "module_description": f"A new ChaCC API module providing {clean_module_name.replace('_', ' ')} functionality.",
         "module_configuration": "- `CHACC_ENV`: Set to `development`, `testing`, or `production`\n- `CHACC_BACKBONE`: Set to `true` when running in ChaCC backbone",
-        "module_api_endpoints": f"- `GET /{module_name}/hello` - Health check endpoint",
+        "module_api_endpoints": f"- `GET /{clean_module_name}/hello` - Health check endpoint",
         "author_name": "Your Name/Organization"
     }
 
@@ -113,19 +153,19 @@ def create_module_scaffold(module_name: str, output_dir: str):
             f.write(test_content)
 
         meta_content = {
-            "name": module_name,
-            "display_name": f"{module_name.replace('_', ' ').title()} Module",
+            "name": clean_module_name,
+            "display_name": f"{module_name_pascal} Module",
             "version": "0.1.0",
             "author": "Your Name/Organization",
-            "description": f"A new ChaCC module providing {module_name.replace('_', ' ')} functionality.",
-            "entry_point": f"{module_name}_src.main:setup_plugin",
-            "test_entry_point": f"{module_name}_src.tests.test_module:run_module_tests",
-            "base_path_prefix": f"/{module_name.replace('_', '-')}",
+            "description": f"A new ChaCC module providing {clean_module_name.replace('_', ' ')} functionality.",
+            "entry_point": f"{clean_module_name}_src.main:setup_plugin",
+            "test_entry_point": f"{clean_module_name}_src.tests.test_module:run_module_tests",
+            "base_path_prefix": f"/{clean_module_name.replace('_', '-')}",
             "dependencies_file": "requirements.txt",
             "required_chacc_version": ">=1.0.0",
             "license": "MIT",
             "tags": ["testing"],
-            "homepage": f"https://github.com/your-org/{module_name}"
+            "homepage": f"https://github.com/your-org/{clean_module_name}"
         }
         with open(os.path.join(module_root_dir, "module_meta.json"), "w") as f:
             json.dump(meta_content, f, indent=2)
@@ -139,11 +179,11 @@ def create_module_scaffold(module_name: str, output_dir: str):
         with open(os.path.join(module_root_dir, "README.md"), "w") as f:
             f.write(readme_content)
 
-        cli_logger.info(f"Successfully created module '{module_name}'.")
-        cli_logger.info(f"Next steps: cd {module_root_dir} && python module/run_tests.py setup && python module/run_tests.py test")
+        cli_logger.info(f"Successfully created module '{clean_module_name}'.")
+        cli_logger.info(f"Next steps: cd {module_root_dir} && python {clean_module_name}_src/run_tests.py setup && python {clean_module_name}_src/run_tests.py test")
 
     except Exception as e:
-        cli_logger.error(f"Failed to create a module '{module_name}': {e}", exc_info=True)
+        cli_logger.error(f"Failed to create a module '{clean_module_name}': {e}", exc_info=True)
         if os.path.exists(module_root_dir):
             shutil.rmtree(module_root_dir)
 
@@ -243,11 +283,13 @@ def deploy_module(chacc_file_path: str):
             )
 
             if response.status_code == 200:
-                cli_logger.info("✅ Module deployed successfully!")
-                cli_logger.info("📝 Response: %s", response.json().get('message', 'No message'))
-                cli_logger.info("🔄 Please restart your remote ChaCC API server to activate the module.")
+                cli_logger.info("="*60)
+                cli_logger.info("🟢 Module deployed successfully!")
+                cli_logger.info("🟢 Response: %s", response.json().get('message', 'No message'))
+                cli_logger.info("🟢 Please restart your remote ChaCC API server to activate the module.")
+                cli_logger.info("="*60)
             else:
-                cli_logger.error(f"❌ Deployment failed with status code {response.status_code}")
+                cli_logger.error(f"🔴 Deployment failed with status code {response.status_code}")
                 try:
                     error_data = response.json()
                     cli_logger.error(f"Error details: {error_data.get('detail', 'No details available')}")
@@ -255,9 +297,9 @@ def deploy_module(chacc_file_path: str):
                     cli_logger.error(f"Response: {response.text}")
 
     except requests.exceptions.Timeout:
-        cli_logger.error(f"❌ Deployment timed out after {deploy_timeout} seconds")
+        cli_logger.error(f"🔴 Deployment timed out after {deploy_timeout} seconds")
     except requests.exceptions.ConnectionError:
-        cli_logger.error(f"❌ Could not connect to {deploy_url}")
+        cli_logger.error(f"🔴 Could not connect to {deploy_url}")
         cli_logger.info("💡 Check that your ChaCC API server is running and accessible")
     except Exception as e:
-        cli_logger.error(f"❌ Deployment error: {e}")
+        cli_logger.error(f"🔴 Deployment error: {e}")

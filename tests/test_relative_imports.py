@@ -8,22 +8,17 @@ import importlib.util
 def test_relative_imports_within_module():
     """Test that modules can import from each other using relative imports."""
     
-    # Create a temporary directory for testing
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create a test module with multiple files that use relative imports
         module_name = "test_relative_imports"
         module_dir = os.path.join(temp_dir, module_name)
         os.makedirs(module_dir, exist_ok=True)
         
-        # Create the module structure
         module_subdir = os.path.join(module_dir, "module")
         os.makedirs(module_subdir, exist_ok=True)
         
-        # Create __init__.py
         with open(os.path.join(module_subdir, "__init__.py"), "w") as f:
             f.write("")
         
-        # Create models.py with some data
         with open(os.path.join(module_subdir, "models.py"), "w") as f:
             f.write("""
 from sqlalchemy import Column, Integer, String
@@ -37,7 +32,6 @@ class TestModel(Base):
     name = Column(String(50))
 """)
         
-        # Create auth.py that imports from models
         with open(os.path.join(module_subdir, "auth.py"), "w") as f:
             f.write("""
 from .models import TestModel

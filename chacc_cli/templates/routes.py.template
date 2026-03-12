@@ -13,11 +13,11 @@ def get_db():
 
 
 # Example: Import models from the module package using relative imports
-# from .models import {{module_name_title}}Item, {{module_name_title}}Create, {{module_name_title}}Response
+# from .models import {{module_name_pascal}}Item, {{module_name_pascal}}Create, {{module_name_pascal}}Response
 
 # Example: Add your module endpoints here
-# @router.post("/", response_model={{module_name_title}}Response)
-# async def create_item(item: {{module_name_title}}Create):
+# @router.post("/", response_model={{module_name_pascal}}Response)
+# async def create_item(item: {{module_name_pascal}}Create):
 #     db = next(get_db())
 #     # Implementation here
 #     pass

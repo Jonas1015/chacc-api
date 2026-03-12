@@ -1,4 +1,4 @@
-# {{module_name_title}} Module
+# {{module_name_pascal}} Module
 
 {{module_description}}
 
@@ -34,7 +34,7 @@ To run this module independently for development:
 
 ```bash
 cd plugins/{{module_name}}
-python -m module.dev_context
+python -m {{module_name}}_src.dev_context
 ```
 
 Or use the run_tests.py script:

@@ -187,7 +187,7 @@ def test_uninstall_test_module(client):
     if response.status_code == 200:
         data = response.json()
         assert "uninstalled" in data["message"].lower()
-    
+
 
 def test_module_workflow_with_authentication(client):
     """Test complete module workflow: enable/disable operations on existing authentication module."""

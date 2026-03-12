@@ -142,7 +142,7 @@ jobs:
             latest
             type=match,pattern=v?(\\d+\\.\\d+\\.\\d+-(?:beta|rc)\\.\\d+),group=1
             type=match,pattern=v?(\\d+\\.\\d+-(?:beta|rc)\\.\\d+),group=1
-            ${{ inputs.docker_tag && format('type=ref,tag={0}', inputs.docker_tag) || '' }}
+            ${{ inputs.docker_tag != '' && format('type=ref,tag={0}', inputs.docker_tag) || '' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -193,7 +193,7 @@ jobs:
             latest
             type=match,pattern=v?(\\d+\\.\\d+\\.\\d+-(?:beta|rc)\\.\\d+),group=1
             type=match,pattern=v?(\\d+\\.\\d+-(?:beta|rc)\\.\\d+),group=1
-            ${{ inputs.docker_tag && format('type=ref,tag={0}', inputs.docker_tag) || '' }}
+            ${{ inputs.docker_tag != '' && format('type=ref,tag={0}', inputs.docker_tag) || '' }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5

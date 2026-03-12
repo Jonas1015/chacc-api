@@ -67,7 +67,7 @@ class RedisService:
                     password=self._password,
                     decode_responses=True,
                     socket_connect_timeout=5,
-                    socket_timeout=5
+                    socket_timeout=5,
                 )
                 await self._redis.ping()
                 self._connection_error = None

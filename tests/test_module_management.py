@@ -19,6 +19,7 @@ For manual testing, use one of these approaches:
 4. Use the cleanup fixture (automatic):
    pytest tests/  # Cleanup happens automatically after each test
 """
+
 import pytest
 import zipfile
 import json
@@ -55,7 +56,9 @@ def test_get_modules_empty(client):
 
 def test_upload_invalid_file(client):
     """Test uploading a file that is not a .chacc package."""
-    response = client.post("/modules/", files={"file": ("test.txt", b"not a zip file", "text/plain")})
+    response = client.post(
+        "/modules/", files={"file": ("test.txt", b"not a zip file", "text/plain")}
+    )
     assert response.status_code == 400
     assert "Only .chacc module packages are allowed" in response.json()["detail"]
 
@@ -63,12 +66,15 @@ def test_upload_invalid_file(client):
 def test_upload_malformed_chacc(client):
     """Test uploading a malformed .chacc file (missing module_meta.json)."""
     import io
+
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
         zip_file.writestr("some_file.txt", "content")
 
     zip_buffer.seek(0)
-    response = client.post("/modules/", files={"file": ("test.chacc", zip_buffer, "application/zip")})
+    response = client.post(
+        "/modules/", files={"file": ("test.chacc", zip_buffer, "application/zip")}
+    )
     assert response.status_code == 400
     assert "Missing 'module_meta.json'" in response.json()["detail"]
 
@@ -76,13 +82,16 @@ def test_upload_malformed_chacc(client):
 def test_upload_chacc_missing_name(client):
     """Test uploading a .chacc file with module_meta.json but missing name field."""
     import io
+
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
         meta_data = {"version": "1.0.0", "description": "Test module"}
         zip_file.writestr("module_meta.json", json.dumps(meta_data))
 
     zip_buffer.seek(0)
-    response = client.post("/modules/", files={"file": ("test.chacc", zip_buffer, "application/zip")})
+    response = client.post(
+        "/modules/", files={"file": ("test.chacc", zip_buffer, "application/zip")}
+    )
     assert response.status_code == 400
     assert "'name' field is missing" in response.json()["detail"]
 
@@ -91,8 +100,9 @@ def test_upload_valid_chacc(client):
     """Test uploading a valid .chacc file - simplified version."""
     # Create a simple test module inline to avoid dependency resolution
     import io
+
     zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+    with zipfile.ZipFile(zip_buffer, "w") as zip_file:
         # Create module_meta.json
         meta_data = {
             "name": "simple_test_module",
@@ -101,13 +111,15 @@ def test_upload_valid_chacc(client):
             "author": "Test Author",
             "description": "A simple test module",
             "entry_point": "main:setup",
-            "base_path_prefix": "/simple-test"
+            "base_path_prefix": "/simple-test",
         }
         zip_file.writestr("module_meta.json", json.dumps(meta_data))
 
         # Create minimal module structure
         zip_file.writestr("module/__init__.py", "")
-        zip_file.writestr("module/main.py", """
+        zip_file.writestr(
+            "module/main.py",
+            """
 from fastapi import APIRouter
 
 def setup(backbone_context):
@@ -116,12 +128,15 @@ def setup(backbone_context):
     async def simple_endpoint():
         return {"message": "Simple test module works"}
     return router
-""")
+""",
+        )
 
     zip_buffer.seek(0)
 
     # Upload the module
-    response = client.post("/modules/", files={"file": ("simple_test_module.chacc", zip_buffer, "application/zip")})
+    response = client.post(
+        "/modules/", files={"file": ("simple_test_module.chacc", zip_buffer, "application/zip")}
+    )
 
     # Should succeed or conflict if already exists
     assert response.status_code in [200, 409]

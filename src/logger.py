@@ -4,12 +4,14 @@ import colorlog
 
 from src.constants import LOGGER_NAME, LOG_FORMAT_DEFAULT, LOG_FORMAT_DEBUG
 
+
 class LogLevels(StrEnum):
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"
     DEBUG = "DEBUG"
     CRITICAL = "CRITICAL"
+
 
 def configure_logging(log_level: str = LogLevels.DEBUG) -> logging.Logger:
     """
@@ -27,19 +29,21 @@ def configure_logging(log_level: str = LogLevels.DEBUG) -> logging.Logger:
         handler.close()
 
     log_colors = {
-        'DEBUG': 'light_cyan',
-        'INFO': 'green',
-        'WARNING': 'yellow',
-        'ERROR': 'red',
-        'CRITICAL': 'bold_red',
+        "DEBUG": "light_cyan",
+        "INFO": "green",
+        "WARNING": "yellow",
+        "ERROR": "red",
+        "CRITICAL": "bold_red",
     }
-    log_format = LOG_FORMAT_DEBUG if log_level_upper == LogLevels.DEBUG.value else LOG_FORMAT_DEFAULT
-    
+    log_format = (
+        LOG_FORMAT_DEBUG if log_level_upper == LogLevels.DEBUG.value else LOG_FORMAT_DEFAULT
+    )
+
     formatter = colorlog.ColoredFormatter(log_format, log_colors=log_colors)
-    
+
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
-    
+
     logging.root.setLevel(log_level_upper)
     logging.root.addHandler(stream_handler)
 

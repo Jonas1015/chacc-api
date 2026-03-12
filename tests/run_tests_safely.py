@@ -14,12 +14,14 @@ import os
 import shutil
 import argparse
 
+
 def cleanup_test_modules():
     """Clean up test modules created during testing."""
     test_module_path = ".modules_loaded/test_module"
     if os.path.exists(test_module_path):
         shutil.rmtree(test_module_path)
         print(f"✓ Cleaned up test module: {test_module_path}")
+
 
 def run_tests(backbone_only=False, no_cleanup=False):
     """Run tests safely."""
@@ -51,15 +53,15 @@ def run_tests(backbone_only=False, no_cleanup=False):
         if not no_cleanup:
             cleanup_test_modules()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Safe test runner")
-    parser.add_argument("--backbone-only", action="store_true",
-                       help="Run only backbone tests")
-    parser.add_argument("--no-cleanup", action="store_true",
-                       help="Don't clean up test modules after running")
+    parser.add_argument("--backbone-only", action="store_true", help="Run only backbone tests")
+    parser.add_argument(
+        "--no-cleanup", action="store_true", help="Don't clean up test modules after running"
+    )
 
     args = parser.parse_args()
 
-    exit_code = run_tests(backbone_only=args.backbone_only,
-                         no_cleanup=args.no_cleanup)
+    exit_code = run_tests(backbone_only=args.backbone_only, no_cleanup=args.no_cleanup)
     sys.exit(exit_code)

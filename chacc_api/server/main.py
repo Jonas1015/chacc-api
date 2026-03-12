@@ -27,14 +27,21 @@ async def run_backbone_tests():
     """
     tests_path = os.path.join(BASE_DIR, "tests", "test_backbone.py")
     if not os.path.exists(tests_path):
-        chacc_logger.info("No backbone tests found in CWD. Skipping tests (not a development install).")
+        chacc_logger.info(
+            "No backbone tests found in CWD. Skipping tests (not a development install)."
+        )
         return
-    
+
     chacc_logger.info("Running backbone unit tests...")
     try:
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, "-m", "pytest", f"{BASE_DIR}/tests/test_backbone.py",
-            "-v", "--tb=short", "--no-header",
+            sys.executable,
+            "-m",
+            "pytest",
+            f"{BASE_DIR}/tests/test_backbone.py",
+            "-v",
+            "--tb=short",
+            "--no-header",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -46,12 +53,12 @@ async def run_backbone_tests():
         failed_tests = []
 
         if result_stdout:
-            lines = result_stdout.strip().split('\n')
+            lines = result_stdout.strip().split("\n")
             for line in lines:
                 line = line.strip()
-                if 'PASSED' in line:
+                if "PASSED" in line:
                     passed_tests.append(line)
-                elif 'FAILED' in line or 'ERROR' in line:
+                elif "FAILED" in line or "ERROR" in line:
                     failed_tests.append(line)
 
         if proc.returncode == 0:
@@ -80,7 +87,9 @@ async def run_backbone_tests():
             if result_stderr:
                 chacc_logger.error(f"Test stderr: {result_stderr}")
 
-            raise RuntimeError(f"Backbone tests failed ({len(failed_tests)} failed, {len(passed_tests)} passed). Application startup aborted.")
+            raise RuntimeError(
+                f"Backbone tests failed ({len(failed_tests)} failed, {len(passed_tests)} passed). Application startup aborted."
+            )
 
     except Exception as e:
         chacc_logger.error(f"Unexpected error running backbone tests: {e}")
@@ -93,38 +102,37 @@ async def onStartupLifespan(app: FastAPI):
     FastAPI lifespan context manager for startup and shutdown events.
     """
     chacc_logger.info("Application startup initiated...")
-    
+
     redis_service = RedisService()
-    
+
     try:
         validate_environment()
     except ValidationError as e:
         chacc_logger.critical(f"Environment validation failed: {e}")
         raise RuntimeError(f"Cannot start application: {e}")
-    
+
     backbone_context = BackboneContext(
-        app=app,
-        limiter=app.state.limiter,
-        logger=chacc_logger,
-        db_session_factory=get_db
+        app=app, limiter=app.state.limiter, logger=chacc_logger, db_session_factory=get_db
     )
-    
+
     try:
         redis_client = await redis_service.get_client()
         if redis_client:
             backbone_context.register_service("redis", redis_service)
             chacc_logger.info("Redis service registered in backbone context.")
         elif redis_service.connection_error:
-            chacc_logger.warning(f"Redis connection failed: {redis_service.connection_error}. Continuing without Redis.")
+            chacc_logger.warning(
+                f"Redis connection failed: {redis_service.connection_error}. Continuing without Redis."
+            )
         else:
             chacc_logger.info("Redis is disabled. Continuing without Redis.")
     except Exception as e:
         chacc_logger.warning(f"Failed to initialize Redis service: {e}. Continuing without Redis.")
-    
+
     app.state.backbone_context = backbone_context
 
     initialize_database_models(backbone_context)
-    
+
     session = await anext(get_db())
     modules_table_exists = False
     try:
@@ -147,18 +155,20 @@ async def onStartupLifespan(app: FastAPI):
         chacc_logger.info(f"DEVELOPMENT MODE: Loading plugins from {PLUGINS_DIR} directory")
         chacc_logger.info("=" * 65)
         from src.plugin_loader import load_dev_modules
+
         await load_dev_modules(app, backbone_context)
     else:
         from src.module_loader import load_modules
+
         chacc_logger.info("=" * 65)
         chacc_logger.info(f"PRODUCTION MODE: Loading modules from {MODULES_LOADED_DIR} directory")
         chacc_logger.info("=" * 65)
         await load_modules(app, backbone_context)
-    
+
     await run_migration()
-    
+
     yield
-    
+
     try:
         redis_service = backbone_context.get_service("redis")
         if redis_service and redis_service.is_connected:
@@ -168,16 +178,17 @@ async def onStartupLifespan(app: FastAPI):
             chacc_logger.debug("Redis service not available or not connected. Skipping cleanup.")
     except Exception as e:
         chacc_logger.warning(f"Error during Redis shutdown: {e}")
-    
+
     chacc_logger.info("Application shutting down.")
-    
+
+
 app = FastAPI(
     title="ChaCC API Backbone",
     description="A modular FastAPI application for extensible APIs.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=onStartupLifespan
+    lifespan=onStartupLifespan,
 )
 
 app.state.limiter = limiter
@@ -188,17 +199,21 @@ app.state.mounted_routers = {}
 
 app.state.backbone_context = None
 
-@app.get("/",
-         summary="Root Endpoint",
-         description="Welcome endpoint for the ChaCC API Backbone",
-         response_description="Welcome message with documentation link",
-         tags=["Core"])
+
+@app.get(
+    "/",
+    summary="Root Endpoint",
+    description="Welcome endpoint for the ChaCC API Backbone",
+    response_description="Welcome message with documentation link",
+    tags=["Core"],
+)
 async def read_root():
     """
     Root endpoint of the ChaCC API backbone.
     Returns a welcome message and directs users to the API documentation.
     """
     return {"message": "Welcome to the ChaCC API Backbone! Check /docs for API modules."}
+
 
 app.include_router(health_router)
 app.include_router(modules_router)

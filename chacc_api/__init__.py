@@ -21,7 +21,7 @@ from src.database import (
     initialize_database_models,
     run_automatic_migration,
     metadata_obj,
-    engine
+    engine,
 )
 
 # Re-export services

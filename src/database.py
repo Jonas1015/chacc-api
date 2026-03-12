@@ -1,7 +1,15 @@
 import uuid
 from sqlalchemy import (
-    JSON, Boolean, Column, Integer, String, create_engine, ForeignKey,
-    DateTime, func, MetaData
+    JSON,
+    Boolean,
+    Column,
+    Integer,
+    String,
+    create_engine,
+    ForeignKey,
+    DateTime,
+    func,
+    MetaData,
 )
 from sqlalchemy import UniqueConstraint, PrimaryKeyConstraint, ForeignKeyConstraint
 from sqlalchemy.dialects.postgresql import UUID
@@ -36,22 +44,27 @@ convention = {
 }
 metadata_obj = MetaData(naming_convention=convention)
 
+
 def register_model(cls):
     if cls not in _model_registry:
         _model_registry.add(cls)
     return cls
 
+
 @as_declarative(metadata=metadata_obj)
 class ChaCCBaseModel:
     """
-     ChaccBaseModel:
-      
+    ChaccBaseModel:
+
     """
+
     @declared_attr
     def __tablename__(cls) -> str:
         return cls.__name__.lower() + "s"
+
     id = Column(Integer, primary_key=True)
     uuid = Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True, nullable=False, index=True)
+
 
 @register_model
 class ModuleRecord(ChaCCBaseModel):
@@ -65,30 +78,40 @@ class ModuleRecord(ChaCCBaseModel):
     base_path_prefix = Column(String, unique=True, nullable=True)
     meta_data = Column(JSON, nullable=True)
 
+
 _core_system_models.add(ModuleRecord)
+
 
 def initialize_database_models(backbone_context: BackboneContext):
     enable_audit_fields = backbone_context.get_service("enable_audit_fields")
-    
+
     for model_cls in _model_registry:
         if model_cls in _core_system_models:
             continue
 
         if enable_audit_fields and enable_audit_fields():
-            if not hasattr(model_cls, 'created_at'):
+            if not hasattr(model_cls, "created_at"):
                 backbone_context.logger.info(f"Adding audit fields to {model_cls.__name__}.")
                 created_at_col = Column(DateTime, server_default=func.now(), nullable=False)
-                updated_at_col = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+                updated_at_col = Column(
+                    DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+                )
                 deleted_at_col = Column(DateTime, nullable=True, index=True)
-                created_by_id_col = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
-                updated_by_id_col = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
-                deleted_by_id_col = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
-                setattr(model_cls, 'created_at', created_at_col)
-                setattr(model_cls, 'updated_at', updated_at_col)
-                setattr(model_cls, 'deleted_at', deleted_at_col)
-                setattr(model_cls, 'created_by_id', created_by_id_col)
-                setattr(model_cls, 'updated_by_id', updated_by_id_col)
-                setattr(model_cls, 'deleted_by_id', deleted_by_id_col)
+                created_by_id_col = Column(
+                    Integer, ForeignKey("users.id"), nullable=True, index=True
+                )
+                updated_by_id_col = Column(
+                    Integer, ForeignKey("users.id"), nullable=True, index=True
+                )
+                deleted_by_id_col = Column(
+                    Integer, ForeignKey("users.id"), nullable=True, index=True
+                )
+                setattr(model_cls, "created_at", created_at_col)
+                setattr(model_cls, "updated_at", updated_at_col)
+                setattr(model_cls, "deleted_at", deleted_at_col)
+                setattr(model_cls, "created_by_id", created_by_id_col)
+                setattr(model_cls, "updated_by_id", updated_by_id_col)
+                setattr(model_cls, "deleted_by_id", deleted_by_id_col)
                 table = model_cls.__table__
                 table.append_column(created_at_col)
                 table.append_column(updated_at_col)
@@ -96,6 +119,7 @@ def initialize_database_models(backbone_context: BackboneContext):
                 table.append_column(created_by_id_col)
                 table.append_column(updated_by_id_col)
                 table.append_column(deleted_by_id_col)
+
 
 async def run_automatic_migration():
     """
@@ -105,7 +129,7 @@ async def run_automatic_migration():
     chacc_logger.info("Starting automatic database migration...")
 
     conn = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
-    
+
     try:
         context = MigrationContext.configure(conn)
         op = Operations(context)
@@ -121,17 +145,17 @@ async def run_automatic_migration():
         for operation_tuple in diff:
             op_type = operation_tuple[0]
 
-            if op_type == 'add_table':
+            if op_type == "add_table":
                 table = operation_tuple[1]
                 op.create_table(table.name, *table.columns)
                 chacc_logger.info(f"Applied migration: CREATE TABLE '{table.name}'")
 
-            elif op_type == 'drop_table':
+            elif op_type == "drop_table":
                 table = operation_tuple[1]
                 op.drop_table(table.name)
                 chacc_logger.info(f"Applied migration: DROP TABLE '{table.name}'")
 
-            elif op_type == 'add_column':
+            elif op_type == "add_column":
                 if operation_tuple[1] is None:
                     table_name = operation_tuple[2]
                     column = operation_tuple[3]
@@ -139,56 +163,78 @@ async def run_automatic_migration():
                     table_name = operation_tuple[1]
                     column = operation_tuple[2]
                 op.add_column(table_name, column)
-                chacc_logger.info(f"Applied migration: ADD COLUMN '{column.name}' to '{table_name}'")
+                chacc_logger.info(
+                    f"Applied migration: ADD COLUMN '{column.name}' to '{table_name}'"
+                )
 
-            elif op_type == 'drop_column':
+            elif op_type == "drop_column":
                 table_name, column = operation_tuple[1], operation_tuple[2]
                 op.drop_column(table_name, column.name)
-                chacc_logger.info(f"Applied migration: DROP COLUMN '{column.name}' from '{table_name}'")
+                chacc_logger.info(
+                    f"Applied migration: DROP COLUMN '{column.name}' from '{table_name}'"
+                )
 
-            elif op_type == 'modify_type':
-                table_name, column, existing_type, new_type = operation_tuple[1], operation_tuple[2], operation_tuple[3], operation_tuple[4]
+            elif op_type == "modify_type":
+                table_name, column, existing_type, new_type = (
+                    operation_tuple[1],
+                    operation_tuple[2],
+                    operation_tuple[3],
+                    operation_tuple[4],
+                )
                 op.alter_column(table_name, column.name, type_=new_type)
-                chacc_logger.info(f"Applied migration: ALTER COLUMN '{column.name}' in '{table_name}' from '{existing_type}' to '{new_type}'")
+                chacc_logger.info(
+                    f"Applied migration: ALTER COLUMN '{column.name}' in '{table_name}' from '{existing_type}' to '{new_type}'"
+                )
 
-            elif op_type == 'add_index':
+            elif op_type == "add_index":
                 index = operation_tuple[1]
-                op.create_index(index.name, index.table.name, [c.name for c in index.columns], unique=index.unique)
+                op.create_index(
+                    index.name,
+                    index.table.name,
+                    [c.name for c in index.columns],
+                    unique=index.unique,
+                )
                 chacc_logger.info(f"Applied migration: CREATE INDEX '{index.name}'")
 
-            elif op_type == 'drop_index':
+            elif op_type == "drop_index":
                 index = operation_tuple[1]
                 op.drop_index(index.name, index.table.name)
                 chacc_logger.info(f"Applied migration: DROP INDEX '{index.name}'")
 
-            elif op_type == 'create_foreign_key':
+            elif op_type == "create_foreign_key":
                 fk = operation_tuple[1]
-                op.create_foreign_key(fk.name, fk.table.name, fk.referred_table.name, [c.name for c in fk.columns], [rc.name for rc in fk.referred_columns])
+                op.create_foreign_key(
+                    fk.name,
+                    fk.table.name,
+                    fk.referred_table.name,
+                    [c.name for c in fk.columns],
+                    [rc.name for rc in fk.referred_columns],
+                )
                 chacc_logger.info(f"Applied migration: CREATE FOREIGN KEY '{fk.name}'")
 
-            elif op_type == 'drop_foreign_key':
+            elif op_type == "drop_foreign_key":
                 fk = operation_tuple[1]
-                op.drop_constraint(fk.name, fk.table.name, type_='foreignkey')
+                op.drop_constraint(fk.name, fk.table.name, type_="foreignkey")
                 chacc_logger.info(f"Applied migration: DROP FOREIGN KEY '{fk.name}'")
 
-            elif op_type == 'add_constraint':
+            elif op_type == "add_constraint":
                 constraint = operation_tuple[1]
 
                 if isinstance(constraint, UniqueConstraint):
                     op.create_unique_constraint(
-                        constraint.name,
-                        constraint.table.name,
-                        [c.name for c in constraint.columns]
+                        constraint.name, constraint.table.name, [c.name for c in constraint.columns]
                     )
-                    chacc_logger.info(f"Applied migration: CREATE UNIQUE CONSTRAINT '{constraint.name}' on '{constraint.table.name}'")
+                    chacc_logger.info(
+                        f"Applied migration: CREATE UNIQUE CONSTRAINT '{constraint.name}' on '{constraint.table.name}'"
+                    )
 
                 elif isinstance(constraint, PrimaryKeyConstraint):
                     op.create_primary_key(
-                        constraint.name,
-                        constraint.table.name,
-                        [c.name for c in constraint.columns]
+                        constraint.name, constraint.table.name, [c.name for c in constraint.columns]
                     )
-                    chacc_logger.info(f"Applied migration: CREATE PRIMARY KEY '{constraint.name}' on '{constraint.table.name}'")
+                    chacc_logger.info(
+                        f"Applied migration: CREATE PRIMARY KEY '{constraint.name}' on '{constraint.table.name}'"
+                    )
 
                 elif isinstance(constraint, ForeignKeyConstraint):
                     op.create_foreign_key(
@@ -196,9 +242,11 @@ async def run_automatic_migration():
                         constraint.table.name,
                         constraint.referred_table.name,
                         [c.name for c in constraint.columns],
-                        [rc.name for rc in constraint.referred_columns]
+                        [rc.name for rc in constraint.referred_columns],
                     )
-                    chacc_logger.info(f"Applied migration: CREATE FOREIGN KEY '{constraint.name}' on '{constraint.table.name}'")
+                    chacc_logger.info(
+                        f"Applied migration: CREATE FOREIGN KEY '{constraint.name}' on '{constraint.table.name}'"
+                    )
 
                 else:
                     chacc_logger.warning(f"Skipping unknown constraint type: {type(constraint)}")
@@ -213,6 +261,7 @@ async def run_automatic_migration():
         raise
     finally:
         conn.close()
+
 
 async def get_db():
     db = SessionLocal()

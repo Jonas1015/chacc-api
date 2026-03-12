@@ -10,7 +10,7 @@ from ...src.database import (
     initialize_database_models,
     run_automatic_migration,
     metadata_obj,
-    engine
+    engine,
 )
 
 __all__ = [
@@ -21,5 +21,5 @@ __all__ = [
     "initialize_database_models",
     "run_automatic_migration",
     "metadata_obj",
-    "engine"
+    "engine",
 ]

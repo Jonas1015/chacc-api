@@ -20,6 +20,7 @@ class ChaCCDependencyManager:
         """Initialize with ChaCC-specific configuration."""
         if cache_dir is None:
             from .constants import DEPENDENCY_CACHE_DIR
+
             cache_dir = DEPENDENCY_CACHE_DIR
 
         self.dm = DependencyManager(cache_dir=cache_dir, logger=logger)
@@ -44,18 +45,21 @@ class ChaCCDependencyManager:
 
                 dependencies_file_name = module_meta.get("dependencies_file", "requirements.txt")
                 from .constants import MODULES_LOADED_DIR
-                module_req_path = os.path.join(MODULES_LOADED_DIR, module_name, dependencies_file_name)
+
+                module_req_path = os.path.join(
+                    MODULES_LOADED_DIR, module_name, dependencies_file_name
+                )
 
                 if os.path.exists(module_req_path):
-                    with open(module_req_path, 'r') as f:
+                    with open(module_req_path, "r") as f:
                         req_content = f.read()
                     modules_requirements[module_name] = req_content
 
-            backbone_req_path = os.path.join(os.path.dirname(__file__), '..', 'requirements.txt')
+            backbone_req_path = os.path.join(os.path.dirname(__file__), "..", "requirements.txt")
             if os.path.exists(backbone_req_path):
-                with open(backbone_req_path, 'r') as f:
+                with open(backbone_req_path, "r") as f:
                     backbone_reqs = f.read()
-                modules_requirements['backbone'] = backbone_reqs
+                modules_requirements["backbone"] = backbone_reqs
 
             if modules_requirements:
                 await self.dm.resolve_dependencies(modules_requirements)
@@ -66,7 +70,7 @@ class ChaCCDependencyManager:
             db.close()
 
 
-async def resolve_chacc_dependencies(logger = None):
+async def resolve_chacc_dependencies(logger=None):
     """Resolve dependencies for all enabled ChaCC modules."""
     adm = ChaCCDependencyManager(logger=logger)
     await adm.resolve_dependencies()

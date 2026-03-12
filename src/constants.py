@@ -5,24 +5,36 @@ from decouple import config
 # This ensures the package works correctly whether installed regularly or editable
 BASE_DIR = os.getcwd()
 
-MODULES_INSTALLED_DIR = os.path.join(BASE_DIR, config("MODULES_INSTALLED_DIR", default="modules_installed", cast=str))
-MODULES_LOADED_DIR = os.path.join(BASE_DIR, config("MODULES_LOADED_DIR", default=".modules_loaded", cast=str))
-MODULES_UPLOAD_DIR = os.path.join(BASE_DIR, config("MODULES_UPLOAD_DIR", default=".modules_upload", cast=str))
+MODULES_INSTALLED_DIR = os.path.join(
+    BASE_DIR, config("MODULES_INSTALLED_DIR", default="modules_installed", cast=str)
+)
+MODULES_LOADED_DIR = os.path.join(
+    BASE_DIR, config("MODULES_LOADED_DIR", default=".modules_loaded", cast=str)
+)
+MODULES_UPLOAD_DIR = os.path.join(
+    BASE_DIR, config("MODULES_UPLOAD_DIR", default=".modules_upload", cast=str)
+)
 PLUGINS_DIR = os.path.join(BASE_DIR, config("PLUGINS_DIR", default="plugins", cast=str))
-DEPENDENCY_CACHE_DIR = os.path.join(BASE_DIR, config("DEPENDENCY_CACHE_DIR", default=".chacc_cache", cast=str))
+DEPENDENCY_CACHE_DIR = os.path.join(
+    BASE_DIR, config("DEPENDENCY_CACHE_DIR", default=".chacc_cache", cast=str)
+)
 BACKBONE_REQUIREMENTS_LOCK_FILE = f"{DEPENDENCY_CACHE_DIR}/compiled_requirements.lock"
 DEPENDENCY_CACHE_FILE = f"{DEPENDENCY_CACHE_DIR}/dependency_cache.json"
 
 # Migration settings
 MIGRATION_MODE = config("MIGRATION_MODE", default="auto", cast=str)
 MIGRATION_BACKUP = config("MIGRATION_BACKUP", default=False, cast=bool)
-MIGRATION_BACKUP_DIR = os.path.join(BASE_DIR, config("MIGRATION_BACKUP_DIR", default="backups", cast=str))
+MIGRATION_BACKUP_DIR = os.path.join(
+    BASE_DIR, config("MIGRATION_BACKUP_DIR", default="backups", cast=str)
+)
 MIGRATION_AUTO_DROP = config("MIGRATION_AUTO_DROP", default=False, cast=bool)
 
 # Development mode detection
 DEVELOPMENT_MODE = config("DEVELOPMENT_MODE", default=False, cast=bool)
 ENABLE_PLUGIN_HOT_RELOAD = config("ENABLE_PLUGIN_HOT_RELOAD", default=True, cast=bool)
-ENABLE_PLUGIN_DEPENDENCY_RESOLUTION = config("ENABLE_PLUGIN_DEPENDENCY_RESOLUTION", default=True, cast=bool)
+ENABLE_PLUGIN_DEPENDENCY_RESOLUTION = config(
+    "ENABLE_PLUGIN_DEPENDENCY_RESOLUTION", default=True, cast=bool
+)
 PLUGIN_AUTO_DISCOVERY = config("PLUGIN_AUTO_DISCOVERY", default=True, cast=bool)
 
 # Redis Configuration

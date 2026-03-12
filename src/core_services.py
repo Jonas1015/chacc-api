@@ -4,11 +4,13 @@ from slowapi import Limiter
 from typing import Callable, Any, Dict, Optional
 from decouple import config as decouple_config
 
+
 class BackboneContext:
     """
     A class to encapsulate common services and context for modules.
     Modules will receive an instance of this class during setup.
     """
+
     def __init__(self, app: FastAPI, limiter: Limiter, logger: logging.Logger, db_session_factory):
         self._app = app
         self._limiter = limiter
@@ -30,7 +32,7 @@ class BackboneContext:
     def logger(self) -> logging.Logger:
         """A centralized logger instance for modules."""
         return self._logger
-    
+
     @property
     def get_db(self):
         """
@@ -57,22 +59,24 @@ class BackboneContext:
             self._logger.warning(f"Service '{name}' not found. Returning None.")
         return service
 
-    def get_module_config(self, key: str, module_name: str, default: Optional[str] = None) -> Optional[str]:
+    def get_module_config(
+        self, key: str, module_name: str, default: Optional[str] = None
+    ) -> Optional[str]:
         """
         Get a module-specific configuration value from environment variables.
-        
+
         This method automatically prefixes the key with the module name to avoid
         conflicts between modules. For example, if module_name is 'auth' and
         key is 'API_KEY', it will look for 'AUTH_API_KEY' in environment variables.
-        
+
         Args:
             key: The configuration key (e.g., 'API_KEY', 'SECRET')
             module_name: The name of the module (e.g., 'auth', 'jonas')
             default: Default value if the environment variable is not set
-            
+
         Returns:
             The configuration value or default
-        
+
         Example:
             # In a module with name 'auth'
             context.get_module_config("API_KEY", "auth")  # Looks for AUTH_API_KEY
@@ -80,13 +84,12 @@ class BackboneContext:
         """
         # Create prefixed key: MODULE_NAME_KEY -> e.g., AUTH_API_KEY
         prefixed_key = f"{module_name.upper()}_{key.upper()}"
-        
+
         value = decouple_config(prefixed_key, default=default)
-        
+
         if value is None or value == default:
             self._logger.debug(f"Config '{prefixed_key}' not found, using default: {default}")
         else:
             self._logger.debug(f"Loaded config '{prefixed_key}' for module '{module_name}'")
-        
-        return value
 
+        return value

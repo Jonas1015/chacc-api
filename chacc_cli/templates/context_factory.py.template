@@ -3,7 +3,7 @@ Context factory for providing BackboneContext in different environments.
 """
 import os
 from typing import Optional
-from src.core_services import BackboneContext
+from chacc_api import BackboneContext
 
 
 # Module-level context holder (set by main.py after setup_plugin is called)

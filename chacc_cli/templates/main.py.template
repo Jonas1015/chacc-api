@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from src.core_services import BackboneContext
+from chacc_api import BackboneContext
 from typing import Optional
 from .routes import router as {{module_name}}_router
 from .context_factory import get_context, set_module_context

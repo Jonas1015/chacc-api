@@ -1,4 +1,4 @@
-from src import ChaCCBaseModel, register_model
+from chacc_api import ChaCCBaseModel, register_model
 from sqlalchemy import Column, String
 from pydantic import BaseModel
 

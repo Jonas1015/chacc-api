@@ -1,11 +1,11 @@
 import logging
-from enum import StrEnum
+from enum import Enum
 import colorlog
 
 from src.constants import LOGGER_NAME, LOG_FORMAT_DEFAULT, LOG_FORMAT_DEBUG
 
 
-class LogLevels(StrEnum):
+class LogLevels(str, Enum):
     INFO = "INFO"
     WARNING = "WARNING"
     ERROR = "ERROR"

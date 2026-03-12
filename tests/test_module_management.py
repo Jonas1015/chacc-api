@@ -27,6 +27,15 @@ import os
 import shutil
 from fastapi.testclient import TestClient
 from chacc_api.server.main import app
+from src.database import metadata_obj, engine
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_database():
+    """Create all database tables before running tests."""
+    metadata_obj.create_all(bind=engine)
+    yield
+    # metadata_obj.drop_all(bind=engine)
 
 
 @pytest.fixture

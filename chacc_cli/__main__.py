@@ -27,6 +27,8 @@ def main():
     scaffold_parser.add_argument("module_name", type=str, help="The name of the module to create (e.g., 'my_awesome_module').")
     scaffold_parser.add_argument("--output-dir", type=str, default="plugins",
                                  help="The directory where the new module will be created. Defaults to 'plugins/'.")
+    scaffold_parser.add_argument("--force", action="store_true",
+                                 help="Overwrite existing module if it exists.")
 
     build_parser = subparsers.add_parser("build", help="Build an ChaCC API module into an .chacc package.")
     build_parser.add_argument("module_source_dir", type=str, help="The path to the module's source directory (e.g., 'plugins/my_awesome_module').")
@@ -64,7 +66,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "create":
-        create_module_scaffold(args.module_name, args.output_dir)
+        create_module_scaffold(args.module_name, args.output_dir, args.force)
     elif args.command == "build":
         build_module_chacc(args.module_source_dir, args.output_filename)
     elif args.command == "deploy":

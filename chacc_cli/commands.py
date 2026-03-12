@@ -2,6 +2,7 @@
 ChaCC CLI command implementations.
 Separated from main CLI interface for better organization.
 """
+from asyncio import subprocess
 import os
 import shutil
 import json
@@ -79,12 +80,17 @@ def load_template(template_name: str, replacements: dict = None) -> str:
     return content
 
 
-def create_module_scaffold(module_name: str, output_dir: str):
+def create_module_scaffold(module_name: str, output_dir: str, force: bool = False):
     """
     Creates the basic folder structure and template files for a new ChaCC API module.
     Includes comprehensive testing architecture and development tools.
     
     Validates module name and converts to appropriate formats for different uses.
+    
+    Args:
+        module_name: Name of the module to create
+        output_dir: Directory where module will be created
+        force: If True, overwrite existing directory without asking
     """
     try:
         clean_module_name = validate_module_name(module_name)
@@ -99,8 +105,13 @@ def create_module_scaffold(module_name: str, output_dir: str):
     module_tests_dir = os.path.join(module_root_dir, f"{clean_module_name}_src", "tests")
 
     if os.path.exists(module_root_dir):
-        cli_logger.error(f"Error: Module directory '{module_root_dir}' already exists. Please choose a different name or remove it.")
-        return
+        if not force:
+            response = input(f"Module directory '{module_root_dir}' already exists. Overwrite? [y/N]: ")
+            if response.lower() not in ('y', 'yes'):
+                cli_logger.info("Aborted. Module was not created.")
+                return
+        cli_logger.info(f"Overwriting existing module '{clean_module_name}'...")
+        shutil.rmtree(module_root_dir)
 
     cli_logger.info(f"Creating new module '{clean_module_name}' in '{module_root_dir}'...")
 
@@ -178,6 +189,61 @@ def create_module_scaffold(module_name: str, output_dir: str):
         readme_content = load_template("README.md.template", replacements)
         with open(os.path.join(module_root_dir, "README.md"), "w") as f:
             f.write(readme_content)
+
+        gitignore_content = """# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Module specific
+*.chacc
+modules_installed/
+.monitoring
+"""
+        with open(os.path.join(module_root_dir, ".gitignore"), "w") as f:
+            f.write(gitignore_content)
+
+        try:
+            subprocess.run(["git", "init"], cwd=module_root_dir, capture_output=True)
+            subprocess.run(["git", "add", "."], cwd=module_root_dir, capture_output=True)
+            cli_logger.info("Initialized git repository.")
+        except FileNotFoundError:
+            cli_logger.warning("git not found. Skipping git initialization.")
+        except Exception as e:
+            cli_logger.warning(f"Could not initialize git: {e}")
 
         cli_logger.info(f"Successfully created module '{clean_module_name}'.")
         cli_logger.info(f"Next steps: cd {module_root_dir} && python {clean_module_name}_src/run_tests.py setup && python {clean_module_name}_src/run_tests.py test")

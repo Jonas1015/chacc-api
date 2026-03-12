@@ -18,19 +18,19 @@ def test_module_directory_structure():
     print(f"MODULES_LOADED_DIR: {MODULES_LOADED_DIR}")
 
     if os.path.isdir(MODULES_INSTALLED_DIR):
-        print(f"✓ modules_installed directory exists")
+        print("✓ modules_installed directory exists")
         chacc_files = [f for f in os.listdir(MODULES_INSTALLED_DIR) if f.endswith(".chacc")]
         print(f"Found {len(chacc_files)} .chacc files: {chacc_files}")
     else:
-        print(f"✗ modules_installed directory does not exist")
+        print("✗ modules_installed directory does not exist")
         return False
 
     if os.path.isdir(MODULES_LOADED_DIR):
-        print(f"✓ modules_loaded directory exists")
+        print("✓ modules_loaded directory exists")
         loaded_modules = os.listdir(MODULES_LOADED_DIR)
         print(f"Found {len(loaded_modules)} loaded modules: {loaded_modules}")
     else:
-        print(f"✗ modules_loaded directory does not exist")
+        print("✗ modules_loaded directory does not exist")
         return False
 
     return True

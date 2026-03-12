@@ -89,7 +89,6 @@ class DatabaseBackup:
 
     async def _backup_sqlite(self, backup_path: str):
         """Create SQLite backup."""
-        import sqlite3
 
         db_path = SQLITE_DB_PATH
 

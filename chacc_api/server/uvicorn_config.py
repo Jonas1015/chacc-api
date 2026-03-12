@@ -3,7 +3,6 @@ Uvicorn configuration to prevent auto-reloader loops.
 """
 
 import os
-from decouple import config as env_config
 from chacc_api.utils import (
     PLUGINS_DIR,
     MODULES_LOADED_DIR,

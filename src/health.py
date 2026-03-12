@@ -6,12 +6,11 @@ Provides health and readiness checks for container orchestration:
 - /health/ready - Readiness check (includes database)
 """
 
-import os
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from src.database import get_db, engine
+from src.database import get_db
 from src.logger import configure_logging, LogLevels
 from src.constants import DEVELOPMENT_MODE
 from sqlalchemy import text

@@ -371,7 +371,7 @@ def deploy_module(chacc_file_path: str):
                     cli_logger.error(
                         f"Error details: {error_data.get('detail', 'No details available')}"
                     )
-                except:
+                except Exception:
                     cli_logger.error(f"Response: {response.text}")
 
     except requests.exceptions.Timeout:

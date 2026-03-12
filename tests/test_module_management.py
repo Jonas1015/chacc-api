@@ -98,12 +98,10 @@ def test_upload_chacc_missing_name(client):
 
 def test_upload_valid_chacc(client):
     """Test uploading a valid .chacc file - simplified version."""
-    # Create a simple test module inline to avoid dependency resolution
     import io
 
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w") as zip_file:
-        # Create module_meta.json
         meta_data = {
             "name": "simple_test_module",
             "display_name": "Simple Test Module",
@@ -115,7 +113,6 @@ def test_upload_valid_chacc(client):
         }
         zip_file.writestr("module_meta.json", json.dumps(meta_data))
 
-        # Create minimal module structure
         zip_file.writestr("module/__init__.py", "")
         zip_file.writestr(
             "module/main.py",
@@ -133,12 +130,10 @@ def setup(backbone_context):
 
     zip_buffer.seek(0)
 
-    # Upload the module
     response = client.post(
         "/modules/", files={"file": ("simple_test_module.chacc", zip_buffer, "application/zip")}
     )
 
-    # Should succeed or conflict if already exists
     assert response.status_code in [200, 409]
 
     if response.status_code == 200:
@@ -170,10 +165,7 @@ def test_uninstall_nonexistent_module(client):
 
 def test_enable_test_module(client):
     """Test enabling a module - simplified version."""
-    # Test the API structure without triggering dependency resolution
-    # Use a non-existent module to test the endpoint structure
     response = client.post("/modules/fake_module/enable")
-    # Should return 404 (not found)
     assert response.status_code == 404
     data = response.json()
     assert "Module not found" in data["detail"]
@@ -181,10 +173,7 @@ def test_enable_test_module(client):
 
 def test_disable_test_module(client):
     """Test disabling a module - simplified version."""
-    # Test the API structure without triggering dependency resolution
-    # Use a non-existent module to test the endpoint structure
     response = client.post("/modules/fake_module/disable")
-    # Should return 404 (not found)
     assert response.status_code == 404
     data = response.json()
     assert "Module not found" in data["detail"]
@@ -192,18 +181,13 @@ def test_disable_test_module(client):
 
 def test_uninstall_test_module(client):
     """Test uninstalling a module - simplified version."""
-    # Test uninstalling a module that exists (but don't actually uninstall authentication)
-    # Just test the API endpoint structure
     response = client.delete("/modules/authentication/uninstall")
-    # This should work if authentication module exists
     assert response.status_code in [200, 404]
 
     if response.status_code == 200:
         data = response.json()
         assert "uninstalled" in data["message"].lower()
-    # Note: We don't actually want to uninstall the authentication module
-    # as it might be needed for other tests
-
+    
 
 def test_module_workflow_with_authentication(client):
     """Test complete module workflow: enable/disable operations on existing authentication module."""

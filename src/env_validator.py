@@ -4,7 +4,6 @@ Environment Validation for ChaCC API.
 Validates required environment variables and configuration for production deployment.
 """
 
-import os
 import re
 from typing import List, Dict, Any
 from decouple import config as decouple_config

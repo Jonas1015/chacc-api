@@ -450,7 +450,7 @@ async def load_single_module(
     except ImportError as e:
         chacc_logger.error(f"Import error in module '{module_name}': {e}")
         chacc_logger.error(
-            f"This often happens with relative imports. Ensure module uses proper import syntax."
+            "This often happens with relative imports. Ensure module uses proper import syntax."
         )
         chacc_logger.error(f"Module path: {module_path}")
         chacc_logger.error(f"Full module name: {full_module_name}")

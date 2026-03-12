@@ -27,7 +27,6 @@ def run_tests(backbone_only=False, no_cleanup=False):
     """Run tests safely."""
     print("🧪 Running tests safely...")
 
-    # Clean up any existing test modules first
     if not no_cleanup:
         cleanup_test_modules()
 
@@ -49,7 +48,6 @@ def run_tests(backbone_only=False, no_cleanup=False):
         return result.returncode
 
     finally:
-        # Clean up test modules after running tests
         if not no_cleanup:
             cleanup_test_modules()
 

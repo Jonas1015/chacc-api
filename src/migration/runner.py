@@ -287,7 +287,7 @@ class MigrationRunner:
                     description = self._generate_migration_description([details])
 
                     conn.execute(
-                        text(f"""
+                        text("""
                         INSERT INTO chacc_migration_log 
                         (version_num, description, checksum, applied_at, rollback_available)
                         VALUES (:version, :desc, :checksum, :applied_at, 0)
@@ -336,7 +336,7 @@ class MigrationRunner:
             op.drop_table(table.name)
 
         elif op_type == "modify_type":
-            table_name, column, existing_type, new_type = (
+            table_name, column, _, new_type = (
                 details[1],
                 details[2],
                 details[3],
@@ -345,7 +345,7 @@ class MigrationRunner:
             op.alter_column(table_name, column.name, type_=new_type)
 
         elif op_type == "modify_nullable":
-            table_name, column, existing_nullable, new_nullable = (
+            table_name, column, _, new_nullable = (
                 details[1],
                 details[2],
                 details[3],
@@ -354,7 +354,7 @@ class MigrationRunner:
             op.alter_column(table_name, column.name, nullable=new_nullable)
 
         elif op_type == "modify_default":
-            table_name, column, existing_default, new_default = (
+            table_name, column, _, new_default = (
                 details[1],
                 details[2],
                 details[3],

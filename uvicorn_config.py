@@ -7,6 +7,5 @@ from chacc_api.server.uvicorn_config import config
 
 if __name__ == "__main__":
     import uvicorn
-    import os
 
     uvicorn.run(**config)

@@ -139,7 +139,7 @@ async def onStartupLifespan(app: FastAPI):
         session.query(ModuleRecord).first()
         modules_table_exists = True
         chacc_logger.info("Modules table exists. Proceeding with regular startup sequence.")
-    except Exception as e:
+    except Exception:
         chacc_logger.warning("Modules table does not exist. Running initial migration.")
         pass
 

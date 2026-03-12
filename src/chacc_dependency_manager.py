@@ -6,7 +6,7 @@ standalone dependency manager package with ChaCC's database and module system.
 """
 
 import os
-from typing import Dict, Optional
+from typing import Optional
 from chacc import DependencyManager
 
 

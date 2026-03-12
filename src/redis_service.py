@@ -3,7 +3,6 @@ Redis service for ChaCC backbone.
 Provides Redis client to modules via context.
 """
 
-import os
 from typing import Optional
 from redis.asyncio import Redis
 

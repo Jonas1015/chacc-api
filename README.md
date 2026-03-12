@@ -129,7 +129,7 @@ The source code is extensively documented. Key files to explore:
 
 ### Authentication Module Example
 
-For a complete example of a working module, see the authentication module in `.modules_loaded/authentication/`. It demonstrates:
+For a complete example of a working module, see the authentication module in [chacc-authentication](https://github.com/Jonas1015/chacc-authentication). It demonstrates:
 
 - Database model definition
 - API route creation

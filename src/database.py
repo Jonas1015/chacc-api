@@ -43,6 +43,10 @@ def register_model(cls):
 
 @as_declarative(metadata=metadata_obj)
 class ChaCCBaseModel:
+    """
+     ChaccBaseModel:
+      
+    """
     @declared_attr
     def __tablename__(cls) -> str:
         return cls.__name__.lower() + "s"

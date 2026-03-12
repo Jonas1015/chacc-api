@@ -7,7 +7,7 @@ import shutil
 import json
 import zipfile
 
-from src.logger import configure_logging, LogLevels
+from chacc_api.utils import configure_logging, LogLevels
 import requests
 from decouple import config
 

@@ -39,13 +39,13 @@ dependencies = [
     "chacc-dependency-manager",
     "redis",
     "requests",
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest",
-    "pytest-asyncio",
-    "httpx",
     "black",
     "ruff",
     "mypy",
@@ -61,9 +61,12 @@ Repository = "https://github.com/jonas1015/chacc-api"
 Issues = "https://github.com/jonas1015/chacc-api/issues"
 
 [tool.setuptools]
-package-dir = {"" = "src", "chacc_cli" = "chacc_cli", "chacc_api" = "chacc_api"}
+include-package-data = true
 
-packages = ["chacc_cli", "chacc_api"]
+[tool.setuptools.packages.find]
+where = [".", "src"]
+include = ["chacc_cli", "chacc_api", "chacc_api.*", "src", "src.migration", "src.services"]
+exclude = ["tests*", "deployment*"]
 
 [tool.setuptools.package-data]
 chacc_cli = ["templates/*.template"]

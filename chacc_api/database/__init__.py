@@ -2,7 +2,7 @@
 Database models and utilities for ChaCC API.
 """
 
-from src.database import (
+from ...src.database import (
     ChaCCBaseModel,
     register_model,
     get_db,

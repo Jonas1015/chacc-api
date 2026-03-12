@@ -1,0 +1,6 @@
+include README.md
+include main.py
+include uvicorn_config.py
+include start_server.py
+include .env.sample
+recursive-include chacc_cli *.template

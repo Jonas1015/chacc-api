@@ -72,20 +72,25 @@ def main():
     
     elif args.command == "run":
         if args.run_subcommand == "server":
+            cli_dir = os.path.dirname(os.path.dirname(__file__))
+            package_dir = os.path.join(cli_dir, "chacc_api", "server")
+            
             if args.dev:
                 env = os.environ.copy()
                 if args.debug:
                     env["CHACC_DEBUG"] = "true"
 
-                cmd = [sys.executable, "uvicorn_config.py"]
+                config_path = os.path.join(package_dir, "uvicorn_config.py")
+                cmd = [sys.executable, config_path]
                 try:
-                    subprocess.run(cmd, env=env)
+                    subprocess.run(cmd, env=env, cwd=os.getcwd())
                 except KeyboardInterrupt:
                     print("\nShutting down ChaCC server...")
             else:
-                cmd = [sys.executable, "start_server.py"]
+                server_path = os.path.join(package_dir, "start_server.py")
+                cmd = [sys.executable, server_path]
                 try:
-                    subprocess.run(cmd)
+                    subprocess.run(cmd, cwd=os.getcwd())
                 except KeyboardInterrupt:
                     print("\nShutting down ChaCC server...")
         elif args.run_subcommand is None:
@@ -101,4 +106,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

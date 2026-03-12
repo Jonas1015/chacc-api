@@ -133,7 +133,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            chacc-api
+            jonas1015/chacc-api
             ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=tag
@@ -151,7 +151,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta.outputs.tags }}
-            ${{ inputs.docker_tag != '' && format('chacc-api:{0}', inputs.docker_tag) || '' }}
+            ${{ inputs.docker_tag != '' && format('jonas1015/chacc-api:{0}', inputs.docker_tag) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
 
@@ -185,7 +185,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            chacc-api
+            jonas1015/chacc-api
             ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=tag
@@ -203,6 +203,6 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta.outputs.tags }}
-            ${{ inputs.docker_tag != '' && format('chacc-api:{0}', inputs.docker_tag) || '' }}
+            ${{ inputs.docker_tag != '' && format('jonas1015/chacc-api:{0}', inputs.docker_tag) || '' }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64

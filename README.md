@@ -76,7 +76,7 @@ chacc deploy mymodule.chacc
 chacc run server --dev
 
 # Start development server on custom port
-chacc server --host 127.0.0.1 --port 3000
+chacc run server --host 127.0.0.1 --port 3000
 ```
 
 ### Production Environment

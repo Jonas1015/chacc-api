@@ -197,6 +197,7 @@ For a complete example of a working module, see the authentication module in [ch
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOG_LEVEL` | `INFO` | Logging level |
+| `CHACC_DEPLOY_URL` | `http://localhost:8080` | Chacc CLI deploy URL|
 
 ## Quick Start
 

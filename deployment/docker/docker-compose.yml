@@ -1,13 +1,19 @@
 # ChaCC API - Docker Compose for Production
+# 
+# Usage:
+#   Pull from Docker Hub (after first release): docker-compose up -d
+#   Build locally (before first release):        docker-compose build && docker-compose up -d
 
 version: '3.8'
 
 services:
   chacc:
-    build:
-      context: ../..
-      dockerfile: deployment/docker/Dockerfile
+    image: chacc-api:latest
     container_name: chacc-api
+    # Uncomment to build locally (before first PyPI release):
+    # build:
+    #   context: ../..
+    #   dockerfile: deployment/docker/Dockerfile
     ports:
       - "8080:8080"
     environment:
@@ -16,9 +22,9 @@ services:
       - DATABASE_PORT=5432
       - DATABASE_NAME=chacc
       - DATABASE_USER=chacc
-      - DATABASE_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      - DATABASE_PASSWORD=${DB_PASSWORD:-changeme}
       
-      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required (32+ characters)}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
       
       - DEVELOPMENT_MODE=False
       - ENABLE_PLUGIN_HOT_RELOAD=False
@@ -51,7 +57,7 @@ services:
     container_name: chacc-db
     environment:
       - POSTGRES_USER=chacc
-      - POSTGRES_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is required}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
       - POSTGRES_DB=chacc
     volumes:
       - postgres_data:/var/lib/postgresql/data

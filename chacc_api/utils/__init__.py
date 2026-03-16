@@ -32,7 +32,7 @@ from src.constants import (
     DATABASE_URL,
     LOGGER_NAME,
     BACKBONE_REQUIREMENTS_LOCK_FILE,
-    DEPENDENCY_CACHE_FILE
+    DEPENDENCY_CACHE_FILE,
 )
 
 __all__ = [

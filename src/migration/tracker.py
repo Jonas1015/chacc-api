@@ -75,9 +75,15 @@ class MigrationTracker:
             else:
                 if self._is_postgres:
                     try:
-                        conn.execute(text(f"ALTER TABLE {TRACKER_TABLE} ALTER COLUMN version_num TYPE VARCHAR(64)"))
+                        conn.execute(
+                            text(
+                                f"ALTER TABLE {TRACKER_TABLE} ALTER COLUMN version_num TYPE VARCHAR(64)"
+                            )
+                        )
                         conn.commit()
-                        chacc_logger.info(f"Altered {TRACKER_TABLE}: increased version_num size to VARCHAR(64)")
+                        chacc_logger.info(
+                            f"Altered {TRACKER_TABLE}: increased version_num size to VARCHAR(64)"
+                        )
                     except Exception as e:
                         chacc_logger.debug(f"Column version_num already of sufficient size: {e}")
 

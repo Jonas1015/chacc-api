@@ -39,23 +39,10 @@ class ContextFactory:
             # Running within the backbone
             return context
 
-        # Check environment
-        env = os.getenv("CHACC_ENV", "development")
-
-        if env == "production":
-            # In production, we should have a context, but provide fallback
-            from .dev_context import DevBackboneContext
-            ctx = DevBackboneContext()
-            ctx.logger.warning("No context provided in production environment")
-            return ctx
-        elif env == "testing":
-            # For testing, use minimal context
-            from .dev_context import DevBackboneContext
-            return DevBackboneContext()
-        else:
-            # Development mode
-            from .dev_context import get_dev_context
-            return get_dev_context()
+        raise RuntimeError(
+            "No context provided. This module requires the ChaCC backbone to run. "
+            "dev_context has been removed - modules must run within the backbone."
+        )
 
     @staticmethod
     def is_backbone_available() -> bool:
@@ -67,8 +54,8 @@ class ContextFactory:
         """Raise error if not running in backbone (for production modules)."""
         if not ContextFactory.is_backbone_available():
             raise RuntimeError(
-                "This module requires the ChaCC backbone to be available. "
-                "Use development context for testing: CHACC_ENV=development"
+                "This module requires the ChaCC backbone to run. "
+                "dev_context has been removed - modules must run within the backbone."
             )
 
 

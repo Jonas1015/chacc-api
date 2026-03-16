@@ -272,10 +272,10 @@ class MigrationRunner:
 
     async def _apply_migrations(self, migrations: List[Dict], metadata: MetaData):
         """Apply migrations to database."""
-        
+
         # Get already applied migrations to skip duplicates
         applied_versions = self.tracker.get_applied()
-        
+
         with self.engine.begin() as conn:
             try:
                 context = MigrationContext.configure(conn)
@@ -283,24 +283,26 @@ class MigrationRunner:
 
                 for migration in migrations:
                     version = migration["version"]
-                    
+
                     # Skip if already applied
                     if version in applied_versions:
                         chacc_logger.info(f"Skipping already applied migration: {version}")
                         continue
-                    
+
                     # Skip unknown migrations (phantom migrations with unknown table names)
                     if "_unknown" in version:
-                        chacc_logger.warning(f"Skipping phantom migration with unknown table: {version}")
+                        chacc_logger.warning(
+                            f"Skipping phantom migration with unknown table: {version}"
+                        )
                         continue
-                    
+
                     details = migration["details"]
                     op_type = migration["operation"]
 
                     self._apply_operation(op, op_type, details)
 
                     description = self._generate_migration_description([details])
-                    
+
                     rollback_value = "FALSE" if self._is_postgres else 0
 
                     conn.execute(

@@ -51,7 +51,7 @@ DATABASE_PASSWORD = config("DATABASE_PASSWORD", default="")
 DATABASE_HOST = config("DATABASE_HOST", default="localhost")
 DATABASE_PORT = config("DATABASE_PORT", default="5432", cast=int)
 
-if DATABASE_ENGINE == "postgresql":
+if "postgres" in DATABASE_ENGINE.lower():
     DATABASE_URL = f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 else:
     DATABASE_URL = f"sqlite:///{os.path.join(BASE_DIR, 'chaccapi.db')}"

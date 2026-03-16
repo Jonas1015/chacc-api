@@ -5,7 +5,7 @@ Tracks which migrations have been applied to prevent re-running.
 """
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Set, Optional, List, Dict
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
@@ -26,7 +26,7 @@ class MigrationTracker:
 
     def __init__(self, engine: Engine):
         self.engine = engine
-        self._is_postgres = DATABASE_ENGINE == "postgresql"
+        self._is_postgres = "postgres" in DATABASE_ENGINE.lower()
         self._ensure_table()
 
     def _ensure_table(self):
@@ -52,7 +52,7 @@ class MigrationTracker:
                     conn.execute(text(f"""
                         CREATE TABLE {TRACKER_TABLE} (
                             id SERIAL PRIMARY KEY,
-                            version_num VARCHAR(32) NOT NULL UNIQUE,
+                            version_num VARCHAR(64) NOT NULL UNIQUE,
                             description TEXT,
                             checksum VARCHAR(64),
                             applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -63,15 +63,23 @@ class MigrationTracker:
                     conn.execute(text(f"""
                         CREATE TABLE {TRACKER_TABLE} (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            version_num VARCHAR(32) NOT NULL UNIQUE,
+                            version_num VARCHAR(64) NOT NULL UNIQUE,
                             description TEXT,
                             checksum VARCHAR(64),
                             applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            rollback_available BOOLEAN DEFAULT 0
+                            rollback_available INTEGER DEFAULT 0
                         )
                     """))
                 conn.commit()
                 chacc_logger.info(f"Created migration tracking table: {TRACKER_TABLE}")
+            else:
+                if self._is_postgres:
+                    try:
+                        conn.execute(text(f"ALTER TABLE {TRACKER_TABLE} ALTER COLUMN version_num TYPE VARCHAR(64)"))
+                        conn.commit()
+                        chacc_logger.info(f"Altered {TRACKER_TABLE}: increased version_num size to VARCHAR(64)")
+                    except Exception as e:
+                        chacc_logger.debug(f"Column version_num already of sufficient size: {e}")
 
     def get_applied(self) -> Set[str]:
         """
@@ -128,7 +136,7 @@ class MigrationTracker:
         if checksum is None:
             checksum = hashlib.sha256(f"{version}:{description}".encode()).hexdigest()[:64]
 
-        rollback_value = "TRUE" if self._is_postgres else 1
+        rollback_value = "TRUE" if self._is_postgres else 0
 
         with self.engine.connect() as conn:
             conn.execute(
@@ -141,7 +149,7 @@ class MigrationTracker:
                     "version": version,
                     "desc": description,
                     "checksum": checksum,
-                    "applied_at": datetime.utcnow().isoformat(),
+                    "applied_at": datetime.now(timezone.utc).isoformat(),
                 },
             )
             conn.commit()

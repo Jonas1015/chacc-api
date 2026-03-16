@@ -6,7 +6,7 @@ Safe migration execution with tracking, backup, and preview capabilities.
 
 import hashlib
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from sqlalchemy import MetaData, text
 from sqlalchemy.engine import Engine
@@ -17,7 +17,7 @@ from alembic.autogenerate import compare_metadata
 
 
 from src.logger import configure_logging, LogLevels
-from src.constants import DEVELOPMENT_MODE, MIGRATION_MODE, MIGRATION_BACKUP_DIR
+from src.constants import DEVELOPMENT_MODE, MIGRATION_MODE, MIGRATION_BACKUP_DIR, DATABASE_ENGINE
 from src.database import engine as default_engine, metadata_obj
 from src.migration.tracker import create_tracker
 from src.migration.backup import create_backup
@@ -52,6 +52,7 @@ class MigrationRunner:
     ):
         self.engine = engine or default_engine
         self.mode = mode or MIGRATION_MODE
+        self._is_postgres = "postgres" in DATABASE_ENGINE.lower()
 
         if create_backup_before is None:
             self.create_backup = not DEVELOPMENT_MODE
@@ -271,32 +272,48 @@ class MigrationRunner:
 
     async def _apply_migrations(self, migrations: List[Dict], metadata: MetaData):
         """Apply migrations to database."""
-
+        
+        # Get already applied migrations to skip duplicates
+        applied_versions = self.tracker.get_applied()
+        
         with self.engine.begin() as conn:
             try:
                 context = MigrationContext.configure(conn)
                 op = Operations(context)
 
                 for migration in migrations:
+                    version = migration["version"]
+                    
+                    # Skip if already applied
+                    if version in applied_versions:
+                        chacc_logger.info(f"Skipping already applied migration: {version}")
+                        continue
+                    
+                    # Skip unknown migrations (phantom migrations with unknown table names)
+                    if "_unknown" in version:
+                        chacc_logger.warning(f"Skipping phantom migration with unknown table: {version}")
+                        continue
+                    
                     details = migration["details"]
                     op_type = migration["operation"]
 
                     self._apply_operation(op, op_type, details)
 
-                    version = migration["version"]
                     description = self._generate_migration_description([details])
+                    
+                    rollback_value = "FALSE" if self._is_postgres else 0
 
                     conn.execute(
-                        text("""
+                        text(f"""
                         INSERT INTO chacc_migration_log 
                         (version_num, description, checksum, applied_at, rollback_available)
-                        VALUES (:version, :desc, :checksum, :applied_at, 0)
+                        VALUES (:version, :desc, :checksum, :applied_at, {rollback_value})
                     """),
                         {
                             "version": version,
-                            "desc": description[:200],  # Limit length
+                            "desc": description[:200],
                             "checksum": self._generate_checksum([details]),
-                            "applied_at": datetime.utcnow().isoformat(),
+                            "applied_at": datetime.now(timezone.utc).isoformat(),
                         },
                     )
 

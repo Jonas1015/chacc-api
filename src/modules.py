@@ -254,7 +254,6 @@ async def enable_module_endpoint(
             status_code=status.HTTP_404_NOT_FOUND, detail="Module archive not found."
         )
 
-    # Get actual module name from module_meta.json
     actual_module_name = module_name
     try:
         with zipfile.ZipFile(chacc_filepath, "r") as zip_ref:
@@ -264,7 +263,6 @@ async def enable_module_endpoint(
     except Exception as e:
         chacc_logger.warning(f"Could not read module_meta.json from {chacc_filepath}: {e}")
 
-    # Collect requirements
     module_requirements = {}
     try:
         with zipfile.ZipFile(chacc_filepath, "r") as zip_ref:
@@ -303,7 +301,6 @@ async def enable_module_endpoint(
                 detail=f"Dependency resolution failed: {e}",
             )
 
-    # Extract module
     loaded_module_dir = os.path.join(MODULES_LOADED_DIR, actual_module_name)
     shutil.rmtree(loaded_module_dir, ignore_errors=True)
     with zipfile.ZipFile(chacc_filepath, "r") as zip_ref:
@@ -398,7 +395,6 @@ async def uninstall_module_endpoint(
             shutil.rmtree(loaded_module_dir)
             chacc_logger.info(f"Successfully deleted module code directory: {loaded_module_dir}")
 
-        # Find and delete the .chacc file
         archive_file_path = get_chacc_filepath(module_name)
 
         if archive_file_path and os.path.exists(archive_file_path):

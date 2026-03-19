@@ -69,6 +69,9 @@ class BackboneContext:
         conflicts between modules. For example, if module_name is 'auth' and
         key is 'API_KEY', it will look for 'AUTH_API_KEY' in environment variables.
 
+        If the prefixed key is not found, it falls back to checking the non-prefixed
+        key (e.g., just 'SECRET_KEY') to support global configuration values.
+
         Args:
             key: The configuration key (e.g., 'API_KEY', 'SECRET')
             module_name: The name of the module (e.g., 'auth', 'jonas')
@@ -79,17 +82,26 @@ class BackboneContext:
 
         Example:
             # In a module with name 'auth'
-            context.get_module_config("API_KEY", "auth")  # Looks for AUTH_API_KEY
-            context.get_module_config("SECRET", "jonas")  # Looks for JONAS_SECRET
+            context.get_module_config("API_KEY", "auth")  # Looks for AUTH_API_KEY, then API_KEY
+            context.get_module_config("SECRET", "mymodule")  # Looks for MYMODULE_SECRET, then SECRET
         """
-        # Create prefixed key: MODULE_NAME_KEY -> e.g., AUTH_API_KEY
         prefixed_key = f"{module_name.upper()}_{key.upper()}"
+        value = decouple_config(prefixed_key, default=None)
 
-        value = decouple_config(prefixed_key, default=default)
+        if value is None:
+            value = decouple_config(key.upper(), default=None)
+            if value is not None:
+                self._logger.debug(f"Loaded global config '{key.upper()}' for module '{module_name}'")
+                prefixed_key = key.upper()
 
-        if value is None or value == default:
-            self._logger.debug(f"Config '{prefixed_key}' not found, using default: {default}")
-        else:
+        if value is None and default is not None:
+            if isinstance(default, str) and len(default) > 0:
+                value = default
+                self._logger.debug(f"Config '{prefixed_key}' not found, using default: {default}")
+            elif default is not None:
+                value = default
+                self._logger.debug(f"Config '{prefixed_key}' not found, using default: {default}")
+        elif value is not None:
             self._logger.debug(f"Loaded config '{prefixed_key}' for module '{module_name}'")
 
         return value

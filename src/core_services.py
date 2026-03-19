@@ -91,7 +91,9 @@ class BackboneContext:
         if value is None:
             value = decouple_config(key.upper(), default=None)
             if value is not None:
-                self._logger.debug(f"Loaded global config '{key.upper()}' for module '{module_name}'")
+                self._logger.debug(
+                    f"Loaded global config '{key.upper()}' for module '{module_name}'"
+                )
                 prefixed_key = key.upper()
 
         if value is None and default is not None:

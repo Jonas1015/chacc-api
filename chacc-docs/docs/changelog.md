@@ -6,7 +6,7 @@
 **Update now:**
 > PyPi Package:
 ```bash
-pip install --upgrade chacc-api:1.0.0-b5
+pip install --upgrade chacc-api
 ```
 
 > Docker
@@ -44,7 +44,7 @@ docker pull jonas1015/chacc-api:1.0.0-b5
 **Update now:**
 > PyPi Package:
 ```bash
-pip install --upgrade chacc-api:1.0.0-b4.post5
+pip install chacc-api==1.0.0-b4.post3
 ```
 
 > Docker
@@ -83,7 +83,7 @@ docker pull jonas1015/chacc-api:1.0.0-b4.5
 **Update now:**
 > PyPi Package:
 ```bash
-pip install --upgrade chacc-api:1.0.0-b4.post2
+pip install chacc-api==1.0.0-b4.post2
 ```
 
 > Docker
@@ -135,7 +135,7 @@ docker pull jonas1015/chacc-api:1.0.0-b4.2
 **Update now:**
 > PyPi Package:
 ```bash
-pip install --upgrade chacc-api:1.0.0-b4.post1
+pip install chacc-api==1.0.0-b4.post1
 ```
 
 > Docker
@@ -184,7 +184,7 @@ docker pull jonas1015/chacc-api:1.0.0-b4.1
 **Update now:**
 > PyPi Package:
 ```bash
-pip install --upgrade chacc-api:1.0.0-b4
+pip install chacc-api==1.0.0-b4
 ```
 
 > Docker

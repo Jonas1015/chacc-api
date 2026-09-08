@@ -207,7 +207,9 @@ def main():
                 print(msg)
             sys.exit(0)
         elif args.run_subcommand is None:
-            msg = _color("Error: 'run' command requires a subcommand. Use 'chacc run server'.", _YELLOW)
+            msg = _color(
+                "Error: 'run' command requires a subcommand. Use 'chacc run server'.", _YELLOW
+            )
             print(msg)
             run_parser.print_help()
             sys.exit(1)

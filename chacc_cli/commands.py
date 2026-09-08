@@ -498,13 +498,17 @@ def deploy_module(chacc_file_path: str):
             if response.status_code == 200:
                 cli_logger.info("=" * 60)
                 cli_logger.info("SUCCESS: Module deployed successfully!")
-                cli_logger.info("SUCCESS: Response: %s", response.json().get("message", "No message"))
+                cli_logger.info(
+                    "SUCCESS: Response: %s", response.json().get("message", "No message")
+                )
                 cli_logger.info(
                     "SUCCESS: Please restart your remote ChaCC API server to activate the module."
                 )
                 cli_logger.info("=" * 60)
             else:
-                cli_logger.error(f"FAILED: Deployment failed with status code {response.status_code}")
+                cli_logger.error(
+                    f"FAILED: Deployment failed with status code {response.status_code}"
+                )
                 try:
                     error_data = response.json()
                     cli_logger.error(

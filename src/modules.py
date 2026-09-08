@@ -23,6 +23,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
+from chacc_cli.commands import validate_module_name
 from src.chacc_dependency_manager import (
     invalidate_module_cache,
 )
@@ -36,8 +37,6 @@ from src.module_loader.archive import (
     get_chacc_filepath,
     safe_extract,
 )
-
-from chacc_cli.commands import validate_module_name
 
 chacc_logger = configure_logging(log_level=get_default_log_level())
 

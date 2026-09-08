@@ -5,19 +5,22 @@ version: '3.8'
 
 services:
   chacc:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile.dev
+    image: chacc-api:local
+    container_name: chacc-api-dev
+    ports:
+      - "8085:8085"
     environment:
       - DEVELOPMENT_MODE=True
       - ENABLE_PLUGIN_HOT_RELOAD=True
       - ENABLE_PLUGIN_DEPENDENCY_RESOLUTION=True
       - PLUGIN_AUTO_DISCOVERY=True
-      
       - DATABASE_ENGINE=sqlite
-      
       - SECRET_KEY=dev-secret-key-for-local-testing-only-123
-      
       - AUTHENTICATION_DEFAULT_ADMIN_USERNAME=admin
       - AUTHENTICATION_DEFAULT_ADMIN_PASSWORD=admin123
-      
       - LOG_LEVEL=DEBUG
     volumes:
       - ../../src:/app/src
@@ -27,3 +30,9 @@ services:
       - ../../start_server.py:/app/start_server.py
     restart: "no"
     command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8085", "--reload"]
+    networks:
+      - chacc-network
+
+networks:
+  chacc-network:
+    driver: bridge

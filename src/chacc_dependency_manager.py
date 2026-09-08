@@ -6,9 +6,10 @@ standalone dependency manager package with ChaCC's database and module system.
 """
 
 import os
-from src.constants import BASE_DIR
-from typing import Optional
+
 from chacc import DependencyManager
+
+from src.constants import BASE_DIR
 
 
 class ChaCCDependencyManager:
@@ -17,7 +18,7 @@ class ChaCCDependencyManager:
     with database integration for module management.
     """
 
-    def __init__(self, cache_dir: Optional[str] = None, logger=None):
+    def __init__(self, cache_dir: str | None = None, logger=None):
         """Initialize with ChaCC-specific configuration."""
         if cache_dir is None:
             from .constants import DEPENDENCY_CACHE_DIR
@@ -33,7 +34,7 @@ class ChaCCDependencyManager:
         This queries the database for enabled modules and their requirements,
         then uses the standalone dependency manager to resolve and install them.
         """
-        from .database import get_db, ModuleRecord
+        from .database import ModuleRecord, get_db
 
         db = await anext(get_db())
         try:

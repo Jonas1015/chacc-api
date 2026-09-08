@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chacc-api"
-version = "1.0.0-b4.post3"
+version = "1.0.0-b5"
 description = "ChaCC API - A modular FastAPI application for extensible APIs"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -28,7 +28,7 @@ dependencies = [
     "uvicorn",
     "sqlalchemy",
     "alembic",
-    "psycopg2-binary",
+    "psycopg",
     "slowapi",
     "python-decouple",
     "pyjwt",
@@ -43,6 +43,7 @@ dependencies = [
     "pytest-asyncio",
     "httpx",
     "uuid-utils",
+    "aiosqlite"
 ]
 
 [project.optional-dependencies]
@@ -57,8 +58,8 @@ chacc = "chacc_cli.__main__:main"
 [project.urls]
 Homepage = "https://github.com/chacc-io/chacc-api"
 Documentation = "https://chacc-api.readthedocs.io"
-Repository = "https://github.com/jonas1015/chacc-api"
-Issues = "https://github.com/jonas1015/chacc-api/issues"
+Repository = "https://github.com/tnet-tech/chacc-api"
+Issues = "https://github.com/tnet-tech/chacc-api/issues"
 
 [tool.setuptools]
 include-package-data = true
@@ -82,6 +83,12 @@ chacc_api = [".env.sample", "assets/*", "server/static/css/*.css", "server/stati
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+
+[tool.ruff.lint]
+ignore = ["B008", "ASYNC230"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["BLE001"]
 
 [tool.mypy]
 python_version = "3.10"

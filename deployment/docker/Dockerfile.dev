@@ -10,9 +10,12 @@ RUN groupadd -r chacc && useradd -r -g chacc chacc
 
 RUN mkdir -p /app/plugins /app/.modules_loaded
 
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir .
+
 COPY . /app/
 
-RUN pip install --no-cache-dir chacc-api
+RUN pip install --no-cache-dir -e ".[dev]"
 
 RUN chown -R chacc:chacc /app
 
@@ -20,11 +23,10 @@ USER chacc
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    HOME=/app \
-    DEVELOPMENT_MODE=False \
-    ENABLE_PLUGIN_HOT_RELOAD=False \
-    PLUGIN_AUTO_DISCOVERY=False \
-    ENABLE_PLUGIN_DEPENDENCY_RESOLUTION=False
+    DEVELOPMENT_MODE=True \
+    ENABLE_PLUGIN_HOT_RELOAD=True \
+    PLUGIN_AUTO_DISCOVERY=True \
+    ENABLE_PLUGIN_DEPENDENCY_RESOLUTION=True
 
 EXPOSE 8085
 

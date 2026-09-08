@@ -1,6 +1,7 @@
 """Unit tests for src.migration.runner - pure-logic methods."""
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from src.migration.runner import MigrationRunner

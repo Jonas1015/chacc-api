@@ -1,14 +1,12 @@
 """Migration operation execution."""
 
 from datetime import datetime, timezone
-from typing import List
-
-from sqlalchemy import text
-from sqlalchemy.exc import OperationalError, ProgrammingError
-from sqlalchemy.types import Enum as SAEnum
 
 from alembic.operations import Operations
 from alembic.runtime.migration import MigrationContext
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.types import Enum as SAEnum
 
 from src.logger import configure_logging, get_default_log_level
 from src.migration.dependencies import MigrationDependencyResolver
@@ -35,8 +33,8 @@ class MigrationOperationExecutor:
         version: str,
         details: tuple,
         op_type: str,
-        checksum: str = None,
-        applied_migrations: List[dict] = None,
+        checksum: str | None = None,
+        applied_migrations: list[dict] | None = None,
     ):
         checksum = checksum or self.dependency_resolver.generate_checksum([details])
 
@@ -123,12 +121,12 @@ class MigrationOperationExecutor:
             return f"{op_type} on {table_name}"
         return op_type
 
-    def qualified_table_name(self, table_name: str, schema: str = None) -> str:
+    def qualified_table_name(self, table_name: str, schema: str | None = None) -> str:
         if schema:
             return f"{schema}.{table_name}"
         return table_name
 
-    def create_enum_type(self, column_type: SAEnum, bind, schema: str = None):
+    def create_enum_type(self, column_type: SAEnum, bind, schema: str | None = None):
         previous_schema = getattr(column_type, "schema", None)
         if schema and previous_schema is None:
             column_type.schema = schema
@@ -212,67 +210,89 @@ class MigrationOperationExecutor:
             name, schema, enum_values = details[1], details[2], details[3]
             try:
                 op.execute(f"DROP TYPE {name}")
-            except Exception as e:
+            except (ProgrammingError, OperationalError) as e:
                 self.logger.warning(f"Could not drop enum type {name}: {e}")
 
         elif op_type == "drop_column":
-            table_name, column = details[1], details[2]
-            schema = self.dependency_resolver.get_schema_from_details(op_type, details)
+            schema = details[1] if len(details) > 1 else None
+            table_name = details[2] if len(details) > 2 else "unknown"
+            column_name = details[3] if len(details) > 3 else "unknown"
             qualified_table_name = self.qualified_table_name(table_name, schema)
             if self.is_postgres:
-                op.drop_column(qualified_table_name, column.name)
+                op.drop_column(qualified_table_name, column_name)
             else:
                 with op.batch_alter_table(qualified_table_name) as batch_op:
-                    batch_op.drop_column(column.name)
+                    batch_op.drop_column(column_name)
 
         elif op_type == "drop_table":
             table = details[1]
             op.drop_table(table.name, schema=getattr(table, "schema", None))
 
         elif op_type == "modify_type":
-            table_name, column, _, new_type = (
-                details[1],
-                details[2],
-                details[3],
-                details[4],
-            )
-            schema = self.dependency_resolver.get_schema_from_details(op_type, details)
+            schema = details[1] if len(details) > 1 else None
+            table_name = details[2] if len(details) > 2 else "unknown"
+            column_name = details[3] if len(details) > 3 else "unknown"
+            existing_type = details[5] if len(details) > 5 else None
+            new_type = details[6] if len(details) > 6 else None
             qualified_table_name = self.qualified_table_name(table_name, schema)
-            if self.is_postgres:
-                op.alter_column(qualified_table_name, column.name, type_=new_type)
+            if self.is_postgres and new_type is not None:
+                if isinstance(new_type, SAEnum):
+                    try:
+                        self.create_enum_type(new_type, op.get_bind(), schema)
+                    except (ProgrammingError, OperationalError):
+                        pass
+
+                    enum_name = getattr(new_type, "name", None)
+                    if enum_name is None and hasattr(new_type, "enum_class"):
+                        enum_name = new_type.enum_class.__name__.lower()
+                    if enum_name:
+                        if existing_type is None or isinstance(existing_type, SAEnum):
+                            sql = f'ALTER TABLE "{qualified_table_name}" ALTER COLUMN "{column_name}" TYPE {enum_name} USING "{column_name}"::text::{enum_name}'
+                        else:
+                            sql = f'ALTER TABLE "{qualified_table_name}" ALTER COLUMN "{column_name}" TYPE {enum_name} USING "{column_name}"::{enum_name}'
+                        op.execute(sql)
+                        return
+
+                type_str = str(new_type).upper()
+                if "JSON" in type_str and existing_type is not None:
+                    existing_str = str(existing_type).upper()
+                    using_type = "JSONB" if "JSONB" in type_str else "JSON"
+                    if (
+                        "STRING" in existing_str
+                        or "TEXT" in existing_str
+                        or "VARCHAR" in existing_str
+                    ):
+                        sql = f'ALTER TABLE "{qualified_table_name}" ALTER COLUMN "{column_name}" TYPE {using_type} USING "{column_name}"::{using_type.lower()}'
+                        op.execute(sql)
+                        return
+                op.alter_column(qualified_table_name, column_name, type_=new_type)
             else:
                 with op.batch_alter_table(qualified_table_name) as batch_op:
-                    batch_op.alter_column(column.name, type_=new_type)
+                    batch_op.alter_column(column_name, type_=new_type)
 
         elif op_type == "modify_nullable":
-            table_name, column, _, new_nullable = (
-                details[1],
-                details[2],
-                details[3],
-                details[4],
-            )
-            schema = self.dependency_resolver.get_schema_from_details(op_type, details)
+            schema = details[1] if len(details) > 1 else None
+            table_name = details[2] if len(details) > 2 else "unknown"
+            column_name = details[3] if len(details) > 3 else "unknown"
+            new_nullable = details[6] if len(details) > 6 else None
             qualified_table_name = self.qualified_table_name(table_name, schema)
             if self.is_postgres:
-                op.alter_column(qualified_table_name, column.name, nullable=new_nullable)
+                op.alter_column(qualified_table_name, column_name, nullable=new_nullable)
             else:
                 with op.batch_alter_table(qualified_table_name) as batch_op:
-                    batch_op.alter_column(column.name, nullable=new_nullable)
+                    batch_op.alter_column(column_name, nullable=new_nullable)
 
         elif op_type == "modify_default":
-            table_name, column, _, new_default = (
-                details[1],
-                details[2],
-                details[3],
-                details[4],
-            )
-            schema = self.dependency_resolver.get_schema_from_details(op_type, details)
+            schema = details[1] if len(details) > 1 else None
+            table_name = details[2] if len(details) > 2 else "unknown"
+            column_name = details[3] if len(details) > 3 else "unknown"
+            new_default = details[6] if len(details) > 6 else None
             qualified_table_name = self.qualified_table_name(table_name, schema)
             if self.is_postgres:
-                op.alter_column(qualified_table_name, column.name, server_default=new_default)
+                op.alter_column(qualified_table_name, column_name, server_default=new_default)
             else:
                 with op.batch_alter_table(qualified_table_name) as batch_op:
-                    batch_op.alter_column(column.name, server_default=new_default)
+                    batch_op.alter_column(column_name, server_default=new_default)
 
         elif op_type == "add_index":
             index = details[1]
@@ -390,7 +410,7 @@ class MigrationOperationExecutor:
                                 columns,
                                 schema=getattr(constraint.table, "schema", None),
                             )
-                    except Exception as e:
+                    except (ProgrammingError, OperationalError) as e:
                         self.logger.warning(f"Failed to create constraint {constraint.name}: {e}")
 
         else:

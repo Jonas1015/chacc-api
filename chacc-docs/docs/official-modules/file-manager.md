@@ -2,6 +2,20 @@
 
 > An official ChaCC API module providing secure, UUID-addressed file management with adapter-based storage.
 
+## Install
+
+Source: [`TNet-Tech/chacc_file_manager`](https://github.com/TNet-Tech/chacc_file_manager).
+
+```bash
+# Dev: copy into plugins/chacc_file_manager (keeps .git)
+chacc install TNet-Tech/chacc_file_manager --dev
+
+# Prod: build chacc_file_manager.chacc into .modules_installed/
+chacc install TNet-Tech/chacc_file_manager
+```
+
+Restart the ChaCC server after install. See the [CLI install guide](../cli.md#install-a-module) for source-form details, credentials, and ref handling.
+
 ## Overview
 
 The adapter-based file management for ChaCC API. Files are addressed by UUID, stored through pluggable adapters, and tracked in the database with deduplication, validation hooks, and configurable streaming behavior.
@@ -116,12 +130,12 @@ from .context_factory import get_module_context
 file_service = get_module_context().get_service("file_service")
 
 record = await file_service.save_file(
-    file=upload_file,          # UploadFile | bytes | AsyncIterable[bytes]
+    file=upload_file,  # UploadFile | bytes | AsyncIterable[bytes]
     filename="photo.jpg",
     content_type="image/jpeg",
     created_by_module="menu",  # identifies which ChaCC module owns the file
     created_by_user_id=current_user.id,  # Optional: track ownership per user
-    channel="images",          # optional, only used if module mapping sets use_module_dir=true
+    channel="images",  # optional, only used if module mapping sets use_module_dir=true
     db_session=db,
 )
 ```
@@ -150,7 +164,7 @@ As a ChaCC module, the file manager is installed for 2 scenarios:
 
 - Clone the repository:
 ```bash
-git clone https://github.com/jonas1015/chacc_file_manager
+git clone https://github.com/tnet-tech/chacc_file_manager
 ```
 
 - Move it into `plugins/` if in chacc development mode (this will be it).
@@ -200,6 +214,7 @@ Hooks should not rely on `metadata` at this stage because `adapter.save()` has n
 import io
 from PIL import Image
 
+
 async def require_image_dimensions(payload, metadata, is_path):
     if is_path:
         # Read the file asynchronously
@@ -207,7 +222,7 @@ async def require_image_dimensions(payload, metadata, is_path):
             data = await f.read()
     else:
         data = payload
-    
+
     image = Image.open(io.BytesIO(data))
     if image.width < 800 or image.height < 600:
         raise ValueError("Image too small")
@@ -299,7 +314,9 @@ class BaseAdapter:
     async def get_size(self, storage_key: str) -> int:
         raise NotImplementedError
 
-    async def get_url(self, storage_key: str, request) -> str: # request is unused but required by contrac
+    async def get_url(
+        self, storage_key: str, request
+    ) -> str:  # request is unused but required by contrac
         raise NotImplementedError
 
     async def read_stream(self, storage_key: str, start: int = 0, end=None):
@@ -313,6 +330,7 @@ At runtime, fetch the actual class from the backbone context to validate adapter
 
 ```python
 from typing import cast
+
 _base_adapter_class = get_module_context().get_service("base_adapter")
 BaseAdapter = cast(type[BaseAdapter], _base_adapter_class)
 ```
@@ -322,6 +340,7 @@ BaseAdapter = cast(type[BaseAdapter], _base_adapter_class)
 ```python
 import asyncio
 from pathlib import Path
+
 
 class S3Adapter(BaseAdapter):
     name = "s3"
@@ -334,9 +353,13 @@ class S3Adapter(BaseAdapter):
         key = f"uploads/{storage_key}"
         loop = asyncio.get_running_loop()
         if isinstance(content, Path):
-            await loop.run_in_executor(None, self.client.upload_from_path, self.bucket, key, str(content))
+            await loop.run_in_executor(
+                None, self.client.upload_from_path, self.bucket, key, str(content)
+            )
         else:
-            await loop.run_in_executor(None, self.client.upload_bytes, self.bucket, key, content, content_type)
+            await loop.run_in_executor(
+                None, self.client.upload_bytes, self.bucket, key, content, content_type
+            )
 
     async def delete(self, storage_key):
         await self.client.delete(self.bucket, f"uploads/{storage_key}")

@@ -6,24 +6,24 @@ Supports both:
 - Production mode: Load from .modules_loaded with optional hot reload
 """
 
-import os
 import json
-from typing import Dict, List
+import os
+
 from fastapi import FastAPI
 
-from src.logger import configure_logging, get_default_log_level
 from src.constants import (
     BASE_DIR,
-    PLUGINS_DIR,
-    MODULES_LOADED_DIR,
     DEPENDENCY_CACHE_DIR,
     DEVELOPMENT_MODE,
-    ENABLE_PLUGIN_HOT_RELOAD,
     ENABLE_PLUGIN_DEPENDENCY_RESOLUTION,
+    ENABLE_PLUGIN_HOT_RELOAD,
+    MODULES_LOADED_DIR,
     PLUGIN_AUTO_DISCOVERY,
+    PLUGINS_DIR,
 )
-from src.module_loader.loader import load_single_module
 from src.database import apply_deferred_schema_changes
+from src.logger import configure_logging, get_default_log_level
+from src.module_loader.loader import load_single_module
 
 chacc_logger = configure_logging(log_level=get_default_log_level())
 
@@ -34,7 +34,7 @@ class ModuleState:
     """
 
     def __init__(self):
-        self.file_hashes: Dict[str, str] = {}
+        self.file_hashes: dict[str, str] = {}
 
     def get_file_hash(self, module_path: str) -> str:
         """Calculate a hash of all Python files in a module directory."""
@@ -51,7 +51,7 @@ class ModuleState:
                     try:
                         with open(file_path, "rb") as f:
                             hasher.update(f.read())
-                    except Exception:
+                    except (OSError, KeyError):
                         pass
 
         return hasher.hexdigest()
@@ -81,7 +81,7 @@ class ModuleState:
 _module_state = ModuleState()
 
 
-def discover_modules_from_directory(directory: str) -> Dict[str, Dict]:
+def discover_modules_from_directory(directory: str) -> dict[str, dict]:
     """
     Discover all modules in a directory.
 
@@ -130,24 +130,23 @@ def discover_modules_from_directory(directory: str) -> Dict[str, Dict]:
             }
 
             chacc_logger.debug(f"Discovered module: {module_name}")
-
-        except Exception as e:
+        except (OSError, KeyError) as e:
             chacc_logger.warning(f"Failed to read module_meta.json for {entry}: {e}")
 
     return modules
 
 
-def discover_plugins() -> Dict[str, Dict]:
+def discover_plugins() -> dict[str, dict]:
     """Discover plugins from plugins directory."""
     return discover_modules_from_directory(PLUGINS_DIR)
 
 
-def discover_installed_modules() -> Dict[str, Dict]:
+def discover_installed_modules() -> dict[str, dict]:
     """Discover installed modules from .modules_loaded directory."""
     return discover_modules_from_directory(MODULES_LOADED_DIR)
 
 
-async def resolve_dependencies(modules: Dict[str, Dict], enabled_modules: List[str]):
+async def resolve_dependencies(modules: dict[str, dict], enabled_modules: list[str]):
     """Resolve dependencies for enabled modules."""
     if not ENABLE_PLUGIN_DEPENDENCY_RESOLUTION:
         return
@@ -177,15 +176,15 @@ async def resolve_dependencies(modules: Dict[str, Dict], enabled_modules: List[s
             dm = DependencyManager(cache_dir=DEPENDENCY_CACHE_DIR, logger=chacc_logger)
             await dm.resolve_dependencies(enabled_requirements)
             chacc_logger.info("Module dependencies resolved")
-        except Exception as e:
+        except (ImportError, RuntimeError) as e:
             chacc_logger.warning(f"Dependency resolution failed: {e}")
 
 
 async def load_dev_modules(
     app: FastAPI,
     backbone_context,
-    only_modules: List[str] = None,
-    exclude_modules: List[str] = None,
+    only_modules: list[str] | None = None,
+    exclude_modules: list[str] | None = None,
 ):
     """
     Load plugins from the plugins directory.
@@ -217,9 +216,9 @@ async def load_dev_modules(
 async def _load_modules(
     app: FastAPI,
     backbone_context,
-    modules: Dict[str, Dict],
-    only_modules: List[str],
-    exclude_modules: List[str],
+    modules: dict[str, dict],
+    only_modules: list[str],
+    exclude_modules: list[str],
     source: str,
 ):
     """Internal function to load modules."""
@@ -257,18 +256,16 @@ async def _load_modules(
                 discover_only=True,
             )
             chacc_logger.info(f"Model discovery complete for module '{module_name}'")
-        except Exception as e:
-            chacc_logger.error(
-                f"Error discovering models for module '{module_name}': {e}", exc_info=True
-            )
+        except Exception:
+            chacc_logger.exception(f"Error discovering models for module '{module_name}'")
 
     try:
         from src.database import initialize_database_models
 
         initialize_database_models(backbone_context)
         chacc_logger.info("initialize_database_models completed.")
-    except Exception as e:
-        chacc_logger.error(f"initialize_database_models failed: {e}", exc_info=True)
+    except Exception:
+        chacc_logger.exception("initialize_database_models failed")
 
     try:
         from src.migration.runner import run_migration
@@ -276,8 +273,8 @@ async def _load_modules(
         chacc_logger.info("Running database migrations after model discovery...")
         await run_migration()
         chacc_logger.info("Database migrations completed.")
-    except Exception as e:
-        chacc_logger.error(f"Migration failed: {e}", exc_info=True)
+    except Exception:
+        chacc_logger.exception("Migration failed")
 
     for module_name in modules_to_load:
         module_info = modules[module_name]
@@ -299,8 +296,8 @@ async def _load_modules(
             else:
                 chacc_logger.error(f"Module '{module_name}' failed to load")
 
-        except Exception as e:
-            chacc_logger.error(f"Error loading module '{module_name}': {e}", exc_info=True)
+        except Exception:
+            chacc_logger.exception(f"Error loading module '{module_name}'")
 
     try:
         if apply_deferred_schema_changes(backbone_context):
@@ -309,7 +306,7 @@ async def _load_modules(
 
             await run_migration()
             chacc_logger.info("Deferred migration completed.")
-    except Exception as e:
-        chacc_logger.error(f"Deferred schema migration failed: {e}", exc_info=True)
+    except Exception:
+        chacc_logger.exception("Deferred schema migration failed")
 
     chacc_logger.info(f"Module loading from {source} completed")

@@ -2,6 +2,20 @@
 
 > The official authentication module for ChaCC API. Provides user management, JWT authentication, and role-based access control (RBAC).
 
+## Install
+
+Source: [`TNet-Tech/chacc_authentication`](https://github.com/TNet-Tech/chacc_authentication).
+
+```bash
+# Dev: copy into plugins/chacc_authentication (keeps .git)
+chacc install TNet-Tech/chacc_authentication --dev
+
+# Prod: build chacc_authentication.chacc into .modules_installed/
+chacc install TNet-Tech/chacc_authentication
+```
+
+Restart the ChaCC server after install. See the [CLI install guide](../cli.md#install-a-module) for source-form details, credentials, and ref handling.
+
 ---
 
 ## Overview
@@ -518,9 +532,12 @@ Other modules and ChaCC API extensions can use the registered services.
 
 ```python
 from fastapi import APIRouter, Depends
+
 router = APIRouter()
+
+
 @router.get("/protected")
-async def protected_route(current_user = Depends(context.get_service("get_current_user"))):
+async def protected_route(current_user=Depends(context.get_service("get_current_user"))):
     return {"message": f"Hello {current_user.username}"}
 ```
 
@@ -530,8 +547,10 @@ Raise `401` if the user is not authenticated:
 
 ```python
 from fastapi import HTTPException, status
+
+
 @router.get("/strict")
-async def strict_route(current_user = Depends(context.get_service("get_current_user"))):
+async def strict_route(current_user=Depends(context.get_service("get_current_user"))):
     if current_user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return {"user": current_user.username}
@@ -541,8 +560,10 @@ async def strict_route(current_user = Depends(context.get_service("get_current_u
 
 ```python
 from module.dependencies import require_privilege
+
+
 @router.delete("/admin/reset")
-async def reset_system(user = Depends(require_privilege("MANAGE_SYSTEM"))):
+async def reset_system(user=Depends(require_privilege("MANAGE_SYSTEM"))):
     return {"status": "reset complete"}
 ```
 
@@ -550,8 +571,10 @@ async def reset_system(user = Depends(require_privilege("MANAGE_SYSTEM"))):
 
 ```python
 from module.dependencies import require_any_privilege
+
+
 @router.get("/reports")
-async def get_reports(user = Depends(require_any_privilege(["READ_REPORTS", "MANAGE_SYSTEM"]))):
+async def get_reports(user=Depends(require_any_privilege(["READ_REPORTS", "MANAGE_SYSTEM"]))):
     return {"reports": [...]}
 ```
 
@@ -559,8 +582,10 @@ async def get_reports(user = Depends(require_any_privilege(["READ_REPORTS", "MAN
 
 ```python
 from module.dependencies import get_user_privileges
+
+
 @router.get("/my-permissions")
-async def my_permissions(privileges = Depends(get_user_privileges)):
+async def my_permissions(privileges=Depends(get_user_privileges)):
     return {"privileges": privileges}
 ```
 

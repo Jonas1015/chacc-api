@@ -1,9 +1,10 @@
 fastapi
 uvicorn
-sqlalchemy
+sqlalchemy[asyncio]
 alembic
 alembic-postgresql-enum
-psycopg2-binary
+psycopg
+aiosqlite
 uuid-utils
 slowapi
 python-decouple

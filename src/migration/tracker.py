@@ -6,9 +6,10 @@ Tracks which migrations have been applied to prevent re-running.
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Set, Optional, List, Dict
+
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from src.constants import DATABASE_ENGINE
 from src.logger import configure_logging, get_default_log_level
@@ -95,7 +96,7 @@ class MigrationTracker:
                         chacc_logger.info(
                             f"Altered {TRACKER_TABLE}: increased version_num size to VARCHAR(256)"
                         )
-                    except Exception as e:
+                    except (ProgrammingError, OperationalError) as e:
                         chacc_logger.debug(f"Column version_num already of sufficient size: {e}")
                     try:
                         conn.execute(
@@ -107,12 +108,12 @@ class MigrationTracker:
                         chacc_logger.info(
                             f"Altered {TRACKER_TABLE}: converted rollback_available to INTEGER"
                         )
-                    except Exception as e2:
+                    except (ProgrammingError, OperationalError) as e2:
                         chacc_logger.debug(
                             f"Column rollback_available already INTEGER or conversion failed: {e2}"
                         )
 
-    def get_applied(self) -> Set[str]:
+    def get_applied(self) -> set[str]:
         """
         Get set of applied migration version numbers.
 
@@ -123,7 +124,7 @@ class MigrationTracker:
             result = conn.execute(text(f"SELECT version_num FROM {TRACKER_TABLE}"))
             return {row[0] for row in result.fetchall()}
 
-    def get_applied_checksums(self) -> Set[str]:
+    def get_applied_checksums(self) -> set[str]:
         """
         Get set of applied migration checksums.
 
@@ -136,7 +137,7 @@ class MigrationTracker:
             )
             return {row[0] for row in result.fetchall()}
 
-    def get_applied_migrations(self) -> List[Dict]:
+    def get_applied_migrations(self) -> list[dict]:
         """
         Get detailed list of applied migrations.
 
@@ -165,7 +166,7 @@ class MigrationTracker:
         self,
         version: str,
         description: str,
-        checksum: Optional[str] = None,
+        checksum: str | None = None,
         rollback_available: bool = False,
     ):
         """
@@ -219,7 +220,7 @@ class MigrationTracker:
 
         chacc_logger.info(f"Removed migration record: {version}")
 
-    def get_migration_by_version(self, version: str) -> Optional[Dict]:
+    def get_migration_by_version(self, version: str) -> dict | None:
         """
         Get a migration record by version number.
 
@@ -248,7 +249,7 @@ class MigrationTracker:
                 }
         return None
 
-    def get_migrations_since_version(self, version: str) -> List[Dict]:
+    def get_migrations_since_version(self, version: str) -> list[dict]:
         """
         Get migrations applied after a specific version.
 
@@ -299,7 +300,7 @@ class MigrationTracker:
             )
             return result.fetchone() is not None
 
-    def get_last_migration(self) -> Optional[Dict]:
+    def get_last_migration(self) -> dict | None:
         """
         Get the most recently applied migration.
 

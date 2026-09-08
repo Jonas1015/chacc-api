@@ -7,30 +7,15 @@ version: '3.8'
 
 services:
   chacc:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile.local
     image: chacc-api:latest
     container_name: chacc-api
     ports:
       - "8085:8085"
-    environment:
-      - DATABASE_ENGINE=postgresql
-      - DATABASE_HOST=db
-      - DATABASE_PORT=5432
-      - DATABASE_NAME=chacc
-      - DATABASE_USER=chacc
-      - DATABASE_PASSWORD=${DB_PASSWORD:-changeme}
-      
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      
-      - DEVELOPMENT_MODE=False
-      - ENABLE_PLUGIN_HOT_RELOAD=False
-      - ENABLE_PLUGIN_DEPENDENCY_RESOLUTION=False
-      - PLUGIN_AUTO_DISCOVERY=False
-      - NO_RELOAD=True
-      
-      - AUTHENTICATION_DEFAULT_ADMIN_USERNAME=admin
-      - AUTHENTICATION_DEFAULT_ADMIN_PASSWORD=${ADMIN_PASSWORD:-ChangeMe123!}
-      
-      - LOG_LEVEL=INFO
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
@@ -48,11 +33,11 @@ services:
       - chacc-network
 
   db:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: chacc-db
     environment:
       - POSTGRES_USER=chacc
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-chacc}
       - POSTGRES_DB=chacc
     volumes:
       - postgres_data:/var/lib/postgresql/data

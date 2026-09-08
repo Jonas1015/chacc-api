@@ -17,8 +17,11 @@ def test_module_imports():
 
 
 def test_context_factory():
-    """Test context factory functions."""
-    pass
+    """Test context factory functions are importable."""
+    from .context_factory import get_module_context, get_db, get_async_db
+    assert callable(get_module_context)
+    assert callable(get_db)
+    assert callable(get_async_db)
 
 
 def test_routes_exist():

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
-from .context_factory import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from .context_factory import get_async_db, get_db
 
 router = APIRouter()
 
@@ -9,6 +10,6 @@ router = APIRouter()
 
 # Example: Add your module endpoints here
 # @router.post("/", response_model={{module_name_pascal}}Response)
-# async def create_item(item: {{module_name_pascal}}Create, db = Depends(get_db)):
+# async def create_item(item: {{module_name_pascal}}Create, db: AsyncSession = Depends(get_async_db)):
 #     # Implementation here
 #     pass

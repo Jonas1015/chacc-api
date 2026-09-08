@@ -1,23 +1,63 @@
 # Changelog
 
-## 1.0.0-b4.3
+## 1.0.0-b5
 
 
 **Update now:**
+> PyPi Package:
 ```bash
 pip install --upgrade chacc-api
 ```
 
+> Docker
+```bash
+docker pull jonas1015/chacc-api:1.0.0-b5
+```
+
+### Added
+
+- **`chacc install` command** – Install any ChaCC module from a Git repository or local folder in one step. You can use a full URL, an SSH address, or the short form like `TNet-Tech/chacc_outbound`. Use `--dev` to copy the module into the plugins directory for active development, or leave it off to build a production `.chacc` archive automatically. Supports `--ref` for branches, tags, and commits, `--force` to overwrite existing modules, and private repositories via `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, or `CHACC_GIT_TOKEN`. Includes a friendly step-by-step progress display with colored status markers so you always know what is happening. See the [CLI install guide](cli.md#install-a-module) for the full reference.
+
+
+- **Async database support for modules** – Modules can now connect to the database without blocking the server. When you create a new module with `chacc create`, the generated code includes everything needed to run database queries asynchronously.
+- **Chacc Outbound module** – A new official module for sending emails, SMS, and other messages. It includes automatic retries, delivery status tracking, and a pluggable adapter system (SMTP and console adapters included out of the box). See the [Chacc Outbound docs](official-modules/outbound.md) for setup, REST API, and how to write custom adapters.
+
+### Fixed
+
+- **Database connections leaking in generated code** – The scaffolded `get_db` dependency now properly closes the database session after each request, preventing connection leaks over time.
+- **Docker startup issues** – Fixed a problem where the database failed to migrate during startup in production mode.
+- **Docker permission errors** – Fixed a permission issue that prevented the dependency resolver from writing its cache.
+- **PostgreSQL enum migration crashes** – Fixed a crash when changing a column from one enum type to another. ChaCC now handles the conversion smoothly through an intermediate step, so enum migrations work without manual SQL.
+- **Module loading crashes** – Fixed a crash that occurred when some plugins loaded their models in certain orders. The startup process is now more forgiving and handles edge cases gracefully.
+- **Migration crashes** – Improved how ChaCC reads migration plans from Alembic, eliminating rare crashes during database updates.
+- **Code cleanup** – Removed unreachable error handling code and eliminated an unnecessary global directory change during archive building, making the install flow easier to follow and safer in multi-threaded environments.
+
 ### Changed
 
-- **Module naming convention** – Module directories now use underscores instead of hyphens (e.g., `chacc_file_manager` instead of `chacc-file-manager`) to align with Python naming standards. This enables consistent use of the standard import system throughout the module loading pipeline. Module metadata `name` fields must also use underscores. **Migration required**: Rename your module directories and update `module_meta.json` files.
+- **Module name validation enforced in build path** – `chacc build` and the internal build step of `chacc install` now both normalize module names the same way. This ensures that module names behave consistently whether you are building a package or installing one.
 
+---
+
+## 1.0.0-b4.5
+
+
+**Update now:**
+> PyPi Package:
+```bash
+pip install chacc-api==1.0.0-b4.post3
+```
+
+> Docker
+```bash
+docker pull jonas1015/chacc-api:1.0.0-b4.5
+```
+
+### Changed
+
+- **Module naming convention** – Module directories now use underscores instead of hyphens (for example, `chacc_file_manager` instead of `chacc-file-manager`) to match Python naming standards. This makes the import system work consistently across the module loading pipeline. If you have existing modules, rename your module directories and update the `name` field in `module_meta.json`.
 - **Code formatting tool** – Switched from Black to Ruff formatter. All code is now formatted using `ruff format` with the same 100-character line length. You can run `ruff format .` to auto-format and `ruff format --check .` to verify formatting.
-
 - **Documentation workflow** – Documentation Docker images are now built and pushed automatically when a release is published. Manual documentation builds can be triggered by including "build docs" in a commit message on the develop or main branch, or via the workflow_dispatch workflow in GitHub Actions.
-
 - **Changelog location** – The changelog has been moved to `chacc-docs/docs/changelog.md`. The root `CHANGELOG.md` file has been removed. See the [changelog on chacc.dev](https://chacc.dev/changelog) for the complete history.
-
 - **ChaCC Theme Applied in Swagger UI and ReDoc** - Added custom ChaCC theme styling to Swagger UI and ReDoc interfaces for consistent branding.
 
 ### Added
@@ -39,6 +79,17 @@ pip install --upgrade chacc-api
 ---
 
 ## 1.0.0-b4.2
+
+**Update now:**
+> PyPi Package:
+```bash
+pip install chacc-api==1.0.0-b4.post2
+```
+
+> Docker
+```bash
+docker pull jonas1015/chacc-api:1.0.0-b4.2
+```
 
 **Beta4.2 fixes a critical startup crash, resolves the audit-schema chicken-and-egg problem, and cleans up model discovery. We have brought you better landing page. If you've had issues with module loading or SQLite table detection, this release is for you.**
 
@@ -81,6 +132,17 @@ pip install --upgrade chacc-api
 
 ## 1.0.0-b4.1
 
+**Update now:**
+> PyPi Package:
+```bash
+pip install chacc-api==1.0.0-b4.post1
+```
+
+> Docker
+```bash
+docker pull jonas1015/chacc-api:1.0.0-b4.1
+```
+
 ### Added
 
 - PostgreSQL enum migration support through `alembic-postgresql-enum`, including handling for `create_enum`, `sync_enum_values`, and `drop_enum` operations.
@@ -118,6 +180,17 @@ pip install --upgrade chacc-api
 - README file has been updated to focus on ChaCC brief intro and link the entire guidance to [chacc.dev](https://chacc.dev)
 
 ## 1.0.0-b4
+
+**Update now:**
+> PyPi Package:
+```bash
+pip install chacc-api==1.0.0-b4
+```
+
+> Docker
+```bash
+docker pull jonas1015/chacc-api:1.0.0-b4
+```
 
 ### Added
 

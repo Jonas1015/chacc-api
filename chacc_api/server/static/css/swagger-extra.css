@@ -49,7 +49,7 @@
     height: 40px;
 }
 .chacc-docs-logo img {
-    height: 72px;
+    height: 100%;
     width: auto;
 }
 .swagger-ui .topbar {

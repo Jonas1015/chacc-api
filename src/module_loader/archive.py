@@ -5,19 +5,30 @@ module_meta.json, locating archive files, collecting requirements,
 determining which archives need reprocessing, and extracting archives.
 """
 
-import os
-import zipfile
 import json
+import os
 import shutil
-from typing import Dict, List, Tuple
-from src.constants import MODULES_INSTALLED_DIR, MODULES_LOADED_DIR, BASE_DIR
+import zipfile
+
+from sqlalchemy.exc import SQLAlchemyError
+
+from src.constants import BASE_DIR, MODULES_INSTALLED_DIR, MODULES_LOADED_DIR
 from src.database import ModuleRecord
 from src.logger import configure_logging, get_default_log_level
 
 chacc_logger = configure_logging(log_level=get_default_log_level())
 
 
-def get_chacc_filepath(module_name: str, chacc_to_module_name: dict = None) -> str | None:
+def safe_extract(zip_ref: zipfile.ZipFile, target_dir: str) -> None:
+    target_base = os.path.realpath(target_dir)
+    for member in zip_ref.namelist():
+        member_path = os.path.realpath(os.path.join(target_dir, member))
+        if not member_path.startswith(target_base + os.sep) and member_path != target_base:
+            raise ValueError(f"Unsafe path in archive: {member}")
+    zip_ref.extractall(target_dir)
+
+
+def get_chacc_filepath(module_name: str, chacc_to_module_name: dict | None = None) -> str | None:
     """Find the .chacc file path for a given module name.
 
     Args:
@@ -44,7 +55,7 @@ def get_chacc_filepath(module_name: str, chacc_to_module_name: dict = None) -> s
     return None
 
 
-def extract_module_names_from_chacc_files(installed_chacc_files: List[str]) -> Dict[str, str]:
+def extract_module_names_from_chacc_files(installed_chacc_files: list[str]) -> dict[str, str]:
     """Extract module names from module_meta.json inside .chacc files.
 
     Args:
@@ -77,14 +88,14 @@ def extract_module_names_from_chacc_files(installed_chacc_files: List[str]) -> D
                         f"No module_meta.json found in {chacc_filename}, using filename as module name"
                     )
                     chacc_to_module_name[chacc_filename] = chacc_filename.replace(".chacc", "")
-        except Exception as e:
+        except (zipfile.BadZipFile, json.JSONDecodeError, OSError, KeyError) as e:
             chacc_logger.warning(f"Could not read module_meta from {chacc_filename}: {e}")
             chacc_to_module_name[chacc_filename] = chacc_filename.replace(".chacc", "")
 
     return chacc_to_module_name
 
 
-async def collect_module_requirements() -> Dict[str, str]:
+async def collect_module_requirements() -> dict[str, str]:
     """Collect requirements from all .chacc files BEFORE unzipping.
 
     Returns:
@@ -122,18 +133,18 @@ async def collect_module_requirements() -> Dict[str, str]:
                     chacc_logger.warning(
                         f"No requirements were specified for module {chacc_filename}"
                     )
-        except Exception as e:
+        except (zipfile.BadZipFile, OSError, KeyError) as e:
             chacc_logger.warning(f"Could not read requirements from {chacc_filename}: {e}")
 
     return modules_requirements
 
 
 def process_module_archives(
-    installed_chacc_files: List[str],
-    chacc_to_module_name: Dict[str, str],
-    existing_records: Dict[str, ModuleRecord],
+    installed_chacc_files: list[str],
+    chacc_to_module_name: dict[str, str],
+    existing_records: dict[str, ModuleRecord],
     db,
-) -> List[Tuple[str, str, float, bool]]:
+) -> list[tuple[str, str, float, bool]]:
     """Determine which .chacc files need re-extraction.
 
     Args:
@@ -194,7 +205,7 @@ def process_module_archives(
                     )
                     db.add(new_record)
                     chacc_logger.info(f"New module '{module_name}' found. Created new DB record.")
-                except Exception as e:
+                except (SQLAlchemyError, OSError) as e:
                     chacc_logger.error(
                         f"Failed to create database record for module '{module_name}': {e}"
                     )
@@ -203,8 +214,8 @@ def process_module_archives(
 
 
 def unzip_modules(
-    modules_to_process: List[Tuple[str, str, float, bool]],
-    existing_records: Dict[str, ModuleRecord],
+    modules_to_process: list[tuple[str, str, float, bool]],
+    existing_records: dict[str, ModuleRecord],
     db,
 ):
     """Extract archives and create or update DB records.
@@ -220,7 +231,7 @@ def unzip_modules(
         chacc_logger.info(f"Unzipping module '{module_name}' to '{loaded_module_dir}'...")
         with zipfile.ZipFile(chacc_filepath, "r") as zip_ref:
             os.makedirs(loaded_module_dir, exist_ok=True)
-            zip_ref.extractall(loaded_module_dir)
+            safe_extract(zip_ref, loaded_module_dir)
             os.utime(loaded_module_dir, (chacc_mtime, chacc_mtime))
         chacc_logger.info(f"Unzipping for '{module_name}' completed.")
 

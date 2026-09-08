@@ -38,6 +38,24 @@ html, body {
   color: var(--chacc-text) !important;
 }
 
+.swagger-ui .topbar .download-url-button {
+  background-color: #62a03f !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+  cursor: pointer !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  transition: background-color 0.2s ease !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+.swagger-ui .topbar .download-url-button:hover {
+  background-color: #4a8a2f !important;
+}
+
 .version-stamp {
   display: none !important;
 }
@@ -103,6 +121,15 @@ h5,
 h6,
 p,
 .parameters-container .parameters-col_name .parameter__name,.parameter__name.required,.parameter__type,.parameter__deprecated,.parameter__in {
+  color: var(--chacc-teal) !important;
+}
+
+.parameters-container tr.parameters td.parameters-col_name div.parameter__type,
+div.parameter__deprecated,
+div.parameter__in,
+div.parameter__empty_value_toggle,
+div.parameter__name,
+div.parameter__type span.prop-format{
   color: var(--chacc-teal) !important;
 }
 
@@ -217,8 +244,9 @@ select {
 
 .expand-operation,
 .authorization__btn svg.unlocked path,
+.authorization__btn svg.locked,
 .opblock-control-arrow svg.arrow path {
-  fill: var(--chacc-text) !important;
+  fill: var(--chacc-teal) !important;
 }
 
 .execute.opblock-control__btn {
@@ -449,7 +477,8 @@ select {
 }
 
 .swagger-ui .parameters-col_description p,
-.swagger-ui .parameters-col_description .model {
+.swagger-ui .parameters-col_description .model,
+.swagger-ui .parameters-col_description .parameter__empty_value_toggle.disabled {
   color: var(--chacc-text) !important;
 }
 

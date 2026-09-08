@@ -8,11 +8,11 @@ Usage:
     python tests/run_tests_safely.py --no-cleanup       # Don't clean up test modules
 """
 
-import subprocess
-import sys
+import argparse
 import os
 import shutil
-import argparse
+import subprocess
+import sys
 
 
 def cleanup_test_modules():
@@ -38,7 +38,7 @@ def run_tests(backbone_only=False, no_cleanup=False):
             print("📋 Running all tests...")
             cmd = [sys.executable, "-m", "pytest", "tests/", "-v"]
 
-        result = subprocess.run(cmd, cwd=".")
+        result = subprocess.run(cmd, cwd=".", check=False)
 
         if result.returncode == 0:
             print("✅ All tests passed!")

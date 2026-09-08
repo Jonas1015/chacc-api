@@ -3,11 +3,10 @@ Redis service for ChaCC backbone.
 Provides Redis client to modules via context.
 """
 
-from typing import Optional
 from redis.asyncio import Redis
 
+from src.constants import REDIS_DB, REDIS_ENABLED, REDIS_HOST, REDIS_PASSWORD, REDIS_PORT
 from src.logger import configure_logging, get_default_log_level
-from src.constants import REDIS_ENABLED, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
 
 chacc_logger = configure_logging(log_level=get_default_log_level())
 
@@ -19,14 +18,14 @@ class RedisService:
     """
 
     def __init__(self):
-        self._redis: Optional[Redis] = None
+        self._redis: Redis | None = None
         self._host = REDIS_HOST
         self._port = REDIS_PORT
         self._db = REDIS_DB
         self._password = REDIS_PASSWORD
         self._enabled = REDIS_ENABLED
         self._connection_attempted = False
-        self._connection_error: Optional[str] = None
+        self._connection_error: str | None = None
 
     @property
     def is_enabled(self) -> bool:
@@ -39,11 +38,11 @@ class RedisService:
         return self._redis is not None and self._connection_error is None
 
     @property
-    def connection_error(self) -> Optional[str]:
+    def connection_error(self) -> str | None:
         """Get the last connection error message if any"""
         return self._connection_error
 
-    async def get_client(self) -> Optional[Redis]:
+    async def get_client(self) -> Redis | None:
         """
         Get Redis client. Returns None if Redis is disabled or connection failed.
         """
@@ -68,7 +67,7 @@ class RedisService:
                 await self._redis.ping()
                 self._connection_error = None
                 chacc_logger.info(f"Redis connected: {self._host}:{self._port}/{self._db}")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self._connection_error = str(e)
                 chacc_logger.debug(f"Redis not available: {e}")
                 if self._redis:
@@ -83,7 +82,7 @@ class RedisService:
             try:
                 await self._redis.close()
                 chacc_logger.info("Redis connection closed.")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 chacc_logger.warning(f"Error closing Redis connection: {e}")
             finally:
                 self._redis = None

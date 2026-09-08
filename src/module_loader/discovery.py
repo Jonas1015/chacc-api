@@ -6,12 +6,12 @@ in SQLAlchemy metadata used by the migration system.
 """
 
 import ast
-import os
+import graphlib
 import importlib
 import importlib.util
-import sys
 import logging
-import graphlib
+import os
+import sys
 from collections import defaultdict
 
 
@@ -37,7 +37,7 @@ def _parse_imports(file_path: str, module_prefix: str, enclosing: str) -> set[st
     try:
         with open(file_path, "r") as f:
             tree = ast.parse(f.read(), filename=file_path)
-    except Exception:
+    except (OSError, SyntaxError, ValueError):
         return set()
 
     imported = set()
@@ -195,7 +195,7 @@ def discover_and_import_models(
                             f"Skipping {file_path}: its table is already registered in metadata."
                         )
                         continue
-                    logger.error(f"Failed to import models from {file_path}: {e}", exc_info=True)
+                    logger.exception(f"Failed to import models from {file_path}")
 
             for module_name in sorted_inits:
                 file_path, rel_path, file, mod_name, enclosing = init_map[module_name]
@@ -231,7 +231,7 @@ def discover_and_import_models(
                             f"Skipping {file_path}: its table is already registered in metadata."
                         )
                         continue
-                    logger.error(f"Failed to import models from {file_path}: {e}", exc_info=True)
+                    logger.exception(f"Failed to import models from {file_path}")
 
     finally:
         if _added_parent and parent_dir in sys.path:

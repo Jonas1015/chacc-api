@@ -38,7 +38,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ -v --tb=short
+          PYTHONPATH=src:. pytest tests/ -v --tb=short
 
   build-cli:
     runs-on: ubuntu-latest

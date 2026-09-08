@@ -6,6 +6,8 @@ pytest.importorskip("sqlalchemy")
 
 from unittest.mock import MagicMock, patch
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from src.migration.dependencies import MigrationDependencyResolver
 
 
@@ -88,7 +90,7 @@ class TestTableExists:
         engine = MagicMock()
         engine.dialect.name = "sqlite"
         mock_inspector = MagicMock()
-        mock_inspector.get_table_names.side_effect = Exception("Connection error")
+        mock_inspector.get_table_names.side_effect = SQLAlchemyError("Connection error")
 
         with patch("src.migration.dependencies.sqlalchemy_inspect", return_value=mock_inspector):
             resolver = MigrationDependencyResolver(engine)

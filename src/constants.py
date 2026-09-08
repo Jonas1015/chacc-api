@@ -1,4 +1,5 @@
 import os
+
 from decouple import config
 
 BASE_DIR = os.getcwd()
@@ -59,9 +60,11 @@ SECRET_KEY = config("SECRET_KEY", default="", cast=str)
 
 if "postgres" in DATABASE_ENGINE.lower():
     DATABASE_URL = f"postgresql://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
+    ASYNC_DATABASE_URL = f"postgresql+psycopg://{DATABASE_USER}:{DATABASE_PASSWORD}@{DATABASE_HOST}:{DATABASE_PORT}/{DATABASE_NAME}"
 else:
     normalized_path = SQLITE_DB_PATH.replace("\\", "/")
     DATABASE_URL = f"sqlite:///{normalized_path}"
+    ASYNC_DATABASE_URL = f"sqlite+aiosqlite:///{normalized_path}"
 
 
 LOGGER_NAME = "CHACC-API"

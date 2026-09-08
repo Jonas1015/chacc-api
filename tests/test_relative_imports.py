@@ -1,7 +1,7 @@
+import importlib.util
 import os
 import sys
 import tempfile
-import importlib.util
 
 
 def test_relative_imports_within_module():

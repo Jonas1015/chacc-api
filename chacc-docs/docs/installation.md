@@ -54,7 +54,7 @@ http://localhost:8085/
 > This installation method is useful if you want to test the actual package and possibly updating the package itself for contribution.
 
 ```bash
-git clone https://github.com/jonas1015/chacc-api
+git clone https://github.com/tnet-tech/chacc-api
 cd chacc-api
 python -m venv .venv
 source .venv/bin/activate

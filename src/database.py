@@ -1,25 +1,26 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON,
     Boolean,
     Column,
-    Integer,
-    String,
-    create_engine,
     DateTime,
     ForeignKey,
-    func,
+    Integer,
     MetaData,
+    String,
+    create_engine,
     event,
+    func,
 )
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.declarative import as_declarative, declared_attr
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.types import TypeDecorator
 
-from .constants import DATABASE_ENGINE, DATABASE_URL
+from .constants import ASYNC_DATABASE_URL, DATABASE_ENGINE, DATABASE_URL
 from .logger import configure_logging, get_default_log_level
 
 try:
@@ -61,10 +62,15 @@ class GUID(TypeDecorator):
 
 if "postgres" in DATABASE_ENGINE:
     engine = create_engine(DATABASE_URL)
+    async_engine = create_async_engine(ASYNC_DATABASE_URL)
 else:
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+    async_engine = create_async_engine(
+        ASYNC_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+AsyncSessionLocal = async_sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 
 convention = {
     "ix": "ix_%(column_0_label)s",
@@ -96,7 +102,7 @@ class ChaCCBaseModel:
 @event.listens_for(ChaCCBaseModel, "before_insert", propagate=True)
 @event.listens_for(ChaCCBaseModel, "before_update", propagate=True)
 def _set_timestamps(mapper, connection, target):
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     if not getattr(target, "created_at", None):
         target.created_at = now
     target.updated_at = now
@@ -148,9 +154,9 @@ def initialize_database_models(backbone_context):
             created_by_col = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
             updated_by_col = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
             deleted_by_col = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-            setattr(model_cls, "created_by_id", created_by_col)
-            setattr(model_cls, "updated_by_id", updated_by_col)
-            setattr(model_cls, "deleted_by_id", deleted_by_col)
+            model_cls.created_by_id = created_by_col
+            model_cls.updated_by_id = updated_by_col
+            model_cls.deleted_by_id = deleted_by_col
             table = model_cls.__table__
             table.append_column(created_by_col)
             table.append_column(updated_by_col)
@@ -183,9 +189,9 @@ def apply_deferred_schema_changes(backbone_context):
             created_by_col = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
             updated_by_col = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
             deleted_by_col = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
-            setattr(model_cls, "created_by_id", created_by_col)
-            setattr(model_cls, "updated_by_id", updated_by_col)
-            setattr(model_cls, "deleted_by_id", deleted_by_col)
+            model_cls.created_by_id = created_by_col
+            model_cls.updated_by_id = updated_by_col
+            model_cls.deleted_by_id = deleted_by_col
             table = model_cls.__table__
             table.append_column(created_by_col)
             table.append_column(updated_by_col)
@@ -205,5 +211,26 @@ async def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
+
+
+async def get_async_db():
+    session = AsyncSessionLocal()
+
+    try:
+        yield session
+    except Exception:
+        try:
+            await session.rollback()
+        except Exception:  # noqa: BLE001
+            chacc_logger.warning("Database Session rollback failed!")
+        raise
+    finally:
+        try:
+            await session.close()
+        except Exception as e:  # noqa: BLE001
+            chacc_logger.warning(f"CLOSE FAILED: {e}")

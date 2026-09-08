@@ -3,11 +3,12 @@
 import logging
 import os
 import tempfile
+
 import pytest
 
 pytest.importorskip("sqlalchemy")
 
-from src.database import metadata_obj, ChaCCBaseModel
+from src.database import ChaCCBaseModel, metadata_obj
 from src.module_loader.discovery import discover_and_import_models
 
 

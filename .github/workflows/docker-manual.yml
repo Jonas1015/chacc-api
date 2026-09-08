@@ -53,7 +53,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: deployment/docker/Dockerfile
+          file: deployment/docker/Dockerfile.local
           push: true
           tags: |
             ${{ steps.meta.outputs.tags }}

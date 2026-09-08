@@ -20,14 +20,16 @@ For manual testing, use one of these approaches:
    pytest tests/  # Cleanup happens automatically after each test
 """
 
-import pytest
-import zipfile
 import json
 import os
 import shutil
+import zipfile
+
+import pytest
 from fastapi.testclient import TestClient
+
 from chacc_api.server.main import app
-from src.database import metadata_obj, engine
+from src.database import engine, metadata_obj
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -85,7 +87,7 @@ def test_upload_malformed_chacc(client):
         "/modules/", files={"file": ("test.chacc", zip_buffer, "application/zip")}
     )
     assert response.status_code == 400
-    assert "Missing 'module_meta.json'" in response.json()["detail"]
+    assert "Missing or invalid 'module_meta.json'" in response.json()["detail"]
 
 
 def test_upload_chacc_missing_name(client):

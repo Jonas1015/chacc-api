@@ -8,10 +8,10 @@ This package provides CLI commands for:
 - Running development servers
 """
 
-from chacc_cli.commands import create_module_scaffold, build_module_chacc, deploy_module
+from chacc_cli.commands import build_module_chacc, create_module_scaffold, deploy_module
 
 __all__ = [
-    "create_module_scaffold",
     "build_module_chacc",
+    "create_module_scaffold",
     "deploy_module",
 ]

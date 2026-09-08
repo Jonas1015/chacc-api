@@ -6,6 +6,7 @@ Must NOT be run in production with development-mode settings.
 
 import os
 import sys
+
 from chacc_api.utils import configure_logging
 
 os.environ["CHACC_DEV_MODE"] = "false"
@@ -29,7 +30,7 @@ def start_server(_logger=None):
         import uvicorn
 
         uvicorn.run("main:app", host=host, port=port, reload=False)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         _log.error(f"❌ Error starting server: {e}")
         sys.exit(1)
 

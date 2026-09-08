@@ -6,7 +6,6 @@ records for modules that are no longer present on disk.
 
 import os
 import shutil
-from typing import Dict
 
 from src.constants import MODULES_LOADED_DIR
 from src.logger import configure_logging, get_default_log_level
@@ -14,7 +13,7 @@ from src.logger import configure_logging, get_default_log_level
 chacc_logger = configure_logging(log_level=get_default_log_level())
 
 
-def sync_database_with_filesystem(chacc_to_module_name: Dict[str, str], existing_records: Dict, db):
+def sync_database_with_filesystem(chacc_to_module_name: dict[str, str], existing_records: dict, db):
     """Remove DB records for modules that are no longer on disk.
 
     Args:

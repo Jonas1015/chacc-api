@@ -1,8 +1,10 @@
 import logging
+from collections.abc import Callable
+from typing import Any
+
+from decouple import config as decouple_config
 from fastapi import FastAPI
 from slowapi import Limiter
-from typing import Callable, Any, Dict, Optional
-from decouple import config as decouple_config
 
 
 class BackboneContext:
@@ -11,12 +13,20 @@ class BackboneContext:
     Modules will receive an instance of this class during setup.
     """
 
-    def __init__(self, app: FastAPI, limiter: Limiter, logger: logging.Logger, db_session_factory):
+    def __init__(
+        self,
+        app: FastAPI,
+        limiter: Limiter,
+        logger: logging.Logger,
+        db_session_factory,
+        async_db_session_factory,
+    ):
         self._app = app
         self._limiter = limiter
         self._logger = logger
         self._db_session_factory = db_session_factory
-        self._services: Dict[str, Callable[..., Any]] = {}
+        self._async_db_session_factory = async_db_session_factory
+        self._services: dict[str, Callable[..., Any]] = {}
 
     @property
     def app(self) -> FastAPI:
@@ -41,6 +51,14 @@ class BackboneContext:
         """
         return self._db_session_factory
 
+    @property
+    def get_db_async(self):
+        """
+        Provides the FastAPI dependency function to get a asynchronous database session.
+        Modules will use this as: db: AsyncSession = Depends(context.get_async_db)
+        """
+        return self._async_db_session_factory
+
     def register_service(self, name: str, service: Callable[..., Any]):
         """
         Allows a module to register a named service (function or class) to be used by other modules.
@@ -50,7 +68,7 @@ class BackboneContext:
         self._logger.info(f"Service '{name}' has been registered.")
         self._services[name] = service
 
-    def get_service(self, name: str) -> Optional[Callable[..., Any]]:
+    def get_service(self, name: str) -> Callable[..., Any] | None:
         """
         Retrieves a registered service by its name.
         """
@@ -60,8 +78,8 @@ class BackboneContext:
         return service
 
     def get_module_config(
-        self, key: str, module_name: str, default: Optional[str] = None
-    ) -> Optional[str]:
+        self, key: str, module_name: str, default: str | None = None
+    ) -> str | None:
         """
         Get a module-specific configuration value from environment variables.
 
@@ -97,10 +115,7 @@ class BackboneContext:
                 prefixed_key = key.upper()
 
         if value is None and default is not None:
-            if isinstance(default, str) and len(default) > 0:
-                value = default
-                self._logger.debug(f"Config '{prefixed_key}' not found, using default: {default}")
-            elif default is not None:
+            if isinstance(default, str) and len(default) > 0 or default is not None:
                 value = default
                 self._logger.debug(f"Config '{prefixed_key}' not found, using default: {default}")
         elif value is not None:

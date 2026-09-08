@@ -1,9 +1,10 @@
 import logging
 import os
 from enum import Enum
+
 import colorlog
 
-from src.constants import LOGGER_NAME, LOG_FORMAT_DEFAULT, LOG_FORMAT_DEBUG
+from src.constants import LOG_FORMAT_DEBUG, LOG_FORMAT_DEFAULT, LOGGER_NAME
 
 
 class LogLevels(str, Enum):
@@ -24,7 +25,7 @@ def get_default_log_level() -> str:
     return LogLevels.WARNING.value
 
 
-def configure_logging(log_level: str = None) -> logging.Logger:
+def configure_logging(log_level: str | None = None) -> logging.Logger:
     """
     Configures the root logger with colored output for only the log level.
     Returns a logger instance for the backbone.

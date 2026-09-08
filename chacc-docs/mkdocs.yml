@@ -2,7 +2,7 @@ site_name: ChaCC API
 site_url: https://chacc.dev/
 site_description: Documentation for ChaCC API, a plug and play FastAPI modular platform.
 site_author: ChaCC API
-repo_url: https://github.com/jonas1015/chacc-api
+repo_url: https://github.com/tnet-tech/chacc-api
 docs_dir: docs
 
 nav:
@@ -23,6 +23,7 @@ nav:
         - Summary: official-modules/index.md
         - Chacc Authentication: official-modules/authentication.md
         - Chacc File Manager: official-modules/file-manager.md
+        - Chacc Outbound: official-modules/outbound.md
   - USEFUL INFORMATION:
     - Troubleshooting: troubleshooting.md
     - Changelog: changelog.md
@@ -84,9 +85,12 @@ extra_css:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/jonas1015/chacc-api
+      link: https://github.com/tnet-tech/chacc-api
       name: ChaCC API on GitHub
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/chacc-api/
       name: ChaCC API on PyPI
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/jonas1015/chacc-api
+      name: ChaCC API on Docker Hub
   copyright: Copyright &copy; 2026 ChaCC API

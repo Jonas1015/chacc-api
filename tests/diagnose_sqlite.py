@@ -4,8 +4,8 @@ Diagnostic script to test SQLite compatibility issues.
 Run with: python tests/diagnose_sqlite.py
 """
 
-import sys
 import os
+import sys
 
 # Setup path
 sys.path.insert(0, os.getcwd())
@@ -15,14 +15,15 @@ def test_uuid_column():
     """Test if UUID column works on SQLite."""
     print("\n=== Test 1: UUID Column ===")
     try:
-        from sqlalchemy import create_engine, Column, Integer, String
+        from sqlalchemy import Column, Integer, String, create_engine
         from sqlalchemy.ext.declarative import declarative_base
         from sqlalchemy.orm import sessionmaker
 
         print("Test 1a: PostgreSQL UUID type on SQLite (EXPECTED TO FAIL):")
         try:
-            from sqlalchemy.dialects.postgresql import UUID
             import uuid as uuid_lib
+
+            from sqlalchemy.dialects.postgresql import UUID
 
             Base = declarative_base()
 
@@ -134,7 +135,7 @@ def test_server_default_sqlite():
     """Test server_default on SQLite."""
     print("\n=== Test 3: Server Default on SQLite ===")
     try:
-        from sqlalchemy import create_engine, Column, Integer, DateTime, text, func
+        from sqlalchemy import Column, DateTime, Integer, create_engine, func, text
         from sqlalchemy.ext.declarative import declarative_base
 
         Base = declarative_base()

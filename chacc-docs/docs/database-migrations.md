@@ -28,6 +28,7 @@ Let's get a model running in 3 steps.
 from chacc_api import ChaCCBaseModel
 from sqlalchemy import Column, String
 
+
 class Project(ChaCCBaseModel):
     __tablename__ = "projects"
     name = Column(String, nullable=False)

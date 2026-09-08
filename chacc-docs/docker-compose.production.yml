@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   docs:
-    image: jonas1015/chacc-docs:latest
+    image: tnet-tech/chacc-docs:latest
     # build:
     #   context: .
     #   dockerfile: Dockerfile

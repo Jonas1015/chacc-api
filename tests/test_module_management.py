@@ -87,7 +87,7 @@ def test_upload_malformed_chacc(client):
         "/modules/", files={"file": ("test.chacc", zip_buffer, "application/zip")}
     )
     assert response.status_code == 400
-    assert "Missing 'module_meta.json'" in response.json()["detail"]
+    assert "Missing or invalid 'module_meta.json'" in response.json()["detail"]
 
 
 def test_upload_chacc_missing_name(client):

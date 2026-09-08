@@ -276,7 +276,8 @@ def build_module_chacc(module_source_dir: str, output_filename: str | None = Non
     try:
         with open(meta_filepath, "r") as f:
             meta_data = json.load(f)
-        module_name = meta_data.get("name", "untitled_module")
+        raw_name = meta_data.get("name", "untitled_module")
+        module_name = validate_module_name(raw_name)
     except json.JSONDecodeError:
         cli_logger.error(f"Error: 'module_meta.json' in '{module_source_dir}' is not valid JSON.")
         return
@@ -286,7 +287,7 @@ def build_module_chacc(module_source_dir: str, output_filename: str | None = Non
     elif not output_filename.endswith(".chacc"):
         output_filename += ".chacc"
 
-    temp_zip_content_dir = f"{module_name}_chacc_temp"
+    temp_zip_content_dir = os.path.join(module_source_dir, f"{module_name}_chacc_temp")
     if os.path.exists(temp_zip_content_dir):
         shutil.rmtree(temp_zip_content_dir)
     os.makedirs(temp_zip_content_dir)
@@ -429,13 +430,8 @@ def install_module(
                 with progress_mod.step("Stripping .git from build staging"):
                     paths_mod.strip_git(staging)
                 with progress_mod.step("Building .chacc archive"):
-                    previous_cwd = os.getcwd()
-                    os.chdir(staging)
-                    try:
-                        build_module_chacc(staging)
-                    finally:
-                        os.chdir(previous_cwd)
-                built_archive = os.path.join(staging, f"{meta.name}.chacc")
+                    built_archive = os.path.join(staging, f"{meta.name}.chacc")
+                    build_module_chacc(staging, output_filename=built_archive)
                 if not os.path.isfile(built_archive):
                     raise RuntimeError(
                         f"archive '{built_archive}' was not produced by the build step."
@@ -457,10 +453,7 @@ def install_module(
             )
         return True
     finally:
-        try:
-            source_mod.cleanup(resolved)
-        except NameError:
-            pass
+        source_mod.cleanup(resolved)
 
 
 def deploy_module(chacc_file_path: str):

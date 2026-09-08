@@ -34,7 +34,10 @@ from src.database import ModuleRecord, get_async_db, get_db
 from src.logger import configure_logging, get_default_log_level
 from src.module_loader.archive import (
     get_chacc_filepath,
+    safe_extract,
 )
+
+from chacc_cli.commands import validate_module_name
 
 chacc_logger = configure_logging(log_level=get_default_log_level())
 
@@ -113,7 +116,7 @@ async def install_chacc_module_endpoint(
     Resolves dependencies BEFORE unzipping to prevent inconsistent state.
     Requires server restart to activate/deactivate the new module.
     """
-    if not file.filename.endswith(".chacc"):
+    if not file.filename or not file.filename.endswith(".chacc"):
         chacc_logger.error(f"Uploaded file '{file.filename}' is not a .chacc package.")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -127,10 +130,10 @@ async def install_chacc_module_endpoint(
             try:
                 with zip_ref.open("module_meta.json") as meta_file:
                     meta_data = json.load(meta_file)
-            except KeyError:
+            except (KeyError, json.JSONDecodeError):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Missing 'module_meta.json' in the .chacc package.",
+                    detail="Missing or invalid 'module_meta.json' in the .chacc package.",
                 )
 
             module_name = meta_data.get("name")
@@ -138,6 +141,14 @@ async def install_chacc_module_endpoint(
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="'name' field is missing in 'module_meta.json'.",
+                )
+
+            try:
+                module_name = validate_module_name(module_name)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid module name in module_meta.json: {exc}",
                 )
 
             module_requirements = {}
@@ -173,7 +184,7 @@ async def install_chacc_module_endpoint(
             shutil.rmtree(loaded_module_dir)
         with zipfile.ZipFile(target_chacc_path, "r") as zip_ref:
             os.makedirs(loaded_module_dir, exist_ok=True)
-            zip_ref.extractall(loaded_module_dir)
+            safe_extract(zip_ref, loaded_module_dir)
             os.utime(
                 loaded_module_dir,
                 (os.path.getmtime(target_chacc_path), os.path.getmtime(target_chacc_path)),
@@ -310,7 +321,7 @@ async def enable_module_endpoint(
     shutil.rmtree(loaded_module_dir, ignore_errors=True)
     with zipfile.ZipFile(chacc_filepath, "r") as zip_ref:
         os.makedirs(loaded_module_dir, exist_ok=True)
-        zip_ref.extractall(loaded_module_dir)
+        safe_extract(zip_ref, loaded_module_dir)
         os.utime(
             loaded_module_dir, (os.path.getmtime(chacc_filepath), os.path.getmtime(chacc_filepath))
         )

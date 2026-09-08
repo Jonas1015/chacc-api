@@ -10,12 +10,14 @@ Source forms accepted (in this strict order):
 
 from __future__ import annotations
 
+import base64
 import os
 import re
 import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from . import credentials
 
@@ -80,28 +82,31 @@ def _ensure_git_available() -> None:
 
 def fetch_git_source(url: str, ref: str | None, depth: int) -> str:
     """
-    Clone ``url`` (token resolved) into a temp dir and return the staging path.
+    Clone ``url`` into a temp dir and return the staging path.
+    Credentials are passed via git config, not embedded in the URL.
     """
     _ensure_git_available()
 
     kind = credentials.classify(url)
-    if kind == "ssh" or kind == "https-with-creds":
-        clone_url = url
-    else:
-        token = credentials.lookup_token(url)
-        if token:
-            clone_url = credentials.inject_token(url, token)
-        else:
-            clone_url = url
+    clone_url = url
 
     staging = tempfile.mkdtemp(prefix="chacc-install-")
     cmd: list[str] = ["git", "clone"]
-    if depth and depth > 0 and not (ref and "/" in (ref or "")):
-        # shallow clone (we keep the simpler path for non-branch refs to avoid edge cases)
+    if depth and depth > 0 and not (ref and "/" in ref):
         cmd += [f"--depth={depth}"]
     if ref:
         cmd += ["--branch", ref]
     cmd += [clone_url, staging]
+
+    env = os.environ.copy()
+    if kind not in ("ssh", "https-with-creds"):
+        token = credentials.lookup_token(url)
+        if token:
+            hostname = urlparse(url).hostname or ""
+            creds = base64.b64encode(f":{token}".encode()).decode()
+            env["GIT_CONFIG_PARAMETERS"] = (
+                f"http.{hostname}.extraheader=Authorization: Basic {creds}"
+            )
 
     try:
         result = subprocess.run(
@@ -109,6 +114,7 @@ def fetch_git_source(url: str, ref: str | None, depth: int) -> str:
             check=False,
             capture_output=True,
             text=True,
+            env=env,
         )
     except FileNotFoundError as exc:  # git not found - already caught above
         shutil.rmtree(staging, ignore_errors=True)

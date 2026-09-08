@@ -19,6 +19,15 @@ from src.logger import configure_logging, get_default_log_level
 chacc_logger = configure_logging(log_level=get_default_log_level())
 
 
+def safe_extract(zip_ref: zipfile.ZipFile, target_dir: str) -> None:
+    target_base = os.path.realpath(target_dir)
+    for member in zip_ref.namelist():
+        member_path = os.path.realpath(os.path.join(target_dir, member))
+        if not member_path.startswith(target_base + os.sep) and member_path != target_base:
+            raise ValueError(f"Unsafe path in archive: {member}")
+    zip_ref.extractall(target_dir)
+
+
 def get_chacc_filepath(module_name: str, chacc_to_module_name: dict | None = None) -> str | None:
     """Find the .chacc file path for a given module name.
 
@@ -222,7 +231,7 @@ def unzip_modules(
         chacc_logger.info(f"Unzipping module '{module_name}' to '{loaded_module_dir}'...")
         with zipfile.ZipFile(chacc_filepath, "r") as zip_ref:
             os.makedirs(loaded_module_dir, exist_ok=True)
-            zip_ref.extractall(loaded_module_dir)
+            safe_extract(zip_ref, loaded_module_dir)
             os.utime(loaded_module_dir, (chacc_mtime, chacc_mtime))
         chacc_logger.info(f"Unzipping for '{module_name}' completed.")
 

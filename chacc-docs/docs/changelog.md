@@ -31,6 +31,10 @@ docker pull jonas1015/chacc-api:1.0.0-b5
 
 ---
 
+### Changed
+- **Module name validation enforced in build path** – `chacc build` and the internal build step of `chacc install` now both pass the validated module name through `validate_module_name()`, ensuring consistent naming conventions across all install and build flows.
+
+
 ## 1.0.0-b4.5
 
 

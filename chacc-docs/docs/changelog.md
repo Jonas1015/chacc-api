@@ -16,24 +16,27 @@ docker pull jonas1015/chacc-api:1.0.0-b5
 
 ### Added
 
-- **Async database sessions** – Modules can now talk to the database asynchronously using `get_async_db()`, which provides an `AsyncSession`. This lets routes run database queries without blocking the rest of the server. Scaffolding templates (`chacc create`) now include this dependency in the generated `context_factory.py` and use it in generated routes via `Depends(get_async_db)`.
-- **Chacc Outbound module** – New official module for sending emails, SMS, and other messages with automatic retries, status tracking, and a pluggable adapter system (SMTP and console adapters included). See the [Chacc Outbound docs](official-modules/outbound.md) for setup, REST API, and how to write custom adapters.
-- **`chacc install` command** – Install any ChaCC module from a Git URL or local directory in one step. Supports short form (`TNet-Tech/chacc_outbound`), HTTPS, and SSH sources; `--dev` to copy into the plugins directory or default production mode to build a `.chacc` archive; `--ref` for branches, tags, and commits; `--force` to overwrite; private repos via `GITHUB_TOKEN` / `GITLAB_TOKEN` / `BITBUCKET_TOKEN` / `CHACC_GIT_TOKEN`; and a friendly step-by-step progress UX. See the [CLI install guide](cli.md#install-a-module) for the full reference.
+- **`chacc install` command** – Install any ChaCC module from a Git repository or local folder in one step. You can use a full URL, an SSH address, or the short form like `TNet-Tech/chacc_outbound`. Use `--dev` to copy the module into the plugins directory for active development, or leave it off to build a production `.chacc` archive automatically. Supports `--ref` for branches, tags, and commits, `--force` to overwrite existing modules, and private repositories via `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, or `CHACC_GIT_TOKEN`. Includes a friendly step-by-step progress display with colored status markers so you always know what is happening. See the [CLI install guide](cli.md#install-a-module) for the full reference.
+
+
+- **Async database support for modules** – Modules can now connect to the database without blocking the server. When you create a new module with `chacc create`, the generated code includes everything needed to run database queries asynchronously.
+- **Chacc Outbound module** – A new official module for sending emails, SMS, and other messages. It includes automatic retries, delivery status tracking, and a pluggable adapter system (SMTP and console adapters included out of the box). See the [Chacc Outbound docs](official-modules/outbound.md) for setup, REST API, and how to write custom adapters.
 
 ### Fixed
 
-- **Generated `get_db` lifecycle** – The scaffolded `get_db` dependency now uses the same lifecycle pattern as `get_async_db` (`anext` → `yield` → `finally: await gen.aclose()`), ensuring the underlying database session is always closed after the dependency completes instead of being leaked.
-- **Docker build and startup** – Failure to migrate database during startup in production mode
-- **Docker permissions** - Permission issue prevented the dependency resolver from writing its cache.
-- **PostgreSQL enum conversions** – Fixed a crash when changing a column from one enum type to another PostgreSQL enum type. ChaCC now casts through `text` as an intermediate step, so enum-to-enum migrations succeed without manual SQL.
-- **Module loading crashes** – Fixed a crash that happened when some plugins loaded their models in certain orders. The startup process is now more forgiving and handles edge cases gracefully.
-- **Migration diff parsing** – Improved how ChaCC reads migration plans from Alembic, eliminating rare crashes during database updates.
-
----
+- **Database connections leaking in generated code** – The scaffolded `get_db` dependency now properly closes the database session after each request, preventing connection leaks over time.
+- **Docker startup issues** – Fixed a problem where the database failed to migrate during startup in production mode.
+- **Docker permission errors** – Fixed a permission issue that prevented the dependency resolver from writing its cache.
+- **PostgreSQL enum migration crashes** – Fixed a crash when changing a column from one enum type to another. ChaCC now handles the conversion smoothly through an intermediate step, so enum migrations work without manual SQL.
+- **Module loading crashes** – Fixed a crash that occurred when some plugins loaded their models in certain orders. The startup process is now more forgiving and handles edge cases gracefully.
+- **Migration crashes** – Improved how ChaCC reads migration plans from Alembic, eliminating rare crashes during database updates.
+- **Code cleanup** – Removed unreachable error handling code and eliminated an unnecessary global directory change during archive building, making the install flow easier to follow and safer in multi-threaded environments.
 
 ### Changed
-- **Module name validation enforced in build path** – `chacc build` and the internal build step of `chacc install` now both pass the validated module name through `validate_module_name()`, ensuring consistent naming conventions across all install and build flows.
 
+- **Module name validation enforced in build path** – `chacc build` and the internal build step of `chacc install` now both normalize module names the same way. This ensures that module names behave consistently whether you are building a package or installing one.
+
+---
 
 ## 1.0.0-b4.5
 
@@ -51,14 +54,10 @@ docker pull jonas1015/chacc-api:1.0.0-b4.5
 
 ### Changed
 
-- **Module naming convention** – Module directories now use underscores instead of hyphens (e.g., `chacc_file_manager` instead of `chacc-file-manager`) to align with Python naming standards. This enables consistent use of the standard import system throughout the module loading pipeline. Module metadata `name` fields must also use underscores. **Migration required**: Rename your module directories and update `module_meta.json` files.
-
+- **Module naming convention** – Module directories now use underscores instead of hyphens (for example, `chacc_file_manager` instead of `chacc-file-manager`) to match Python naming standards. This makes the import system work consistently across the module loading pipeline. If you have existing modules, rename your module directories and update the `name` field in `module_meta.json`.
 - **Code formatting tool** – Switched from Black to Ruff formatter. All code is now formatted using `ruff format` with the same 100-character line length. You can run `ruff format .` to auto-format and `ruff format --check .` to verify formatting.
-
 - **Documentation workflow** – Documentation Docker images are now built and pushed automatically when a release is published. Manual documentation builds can be triggered by including "build docs" in a commit message on the develop or main branch, or via the workflow_dispatch workflow in GitHub Actions.
-
 - **Changelog location** – The changelog has been moved to `chacc-docs/docs/changelog.md`. The root `CHANGELOG.md` file has been removed. See the [changelog on chacc.dev](https://chacc.dev/changelog) for the complete history.
-
 - **ChaCC Theme Applied in Swagger UI and ReDoc** - Added custom ChaCC theme styling to Swagger UI and ReDoc interfaces for consistent branding.
 
 ### Added

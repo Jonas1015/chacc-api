@@ -7,6 +7,15 @@ import os
 import subprocess
 import sys
 
+_RED = "\033[31m"
+_YELLOW = "\033[33m"
+_BOLD = "\033[1m"
+_RESET = "\033[0m"
+
+
+def _color(text: str, ansi: str) -> str:
+    return f"{ansi}{text}{_RESET}" if sys.stdout.isatty() else text
+
 
 def main():
     """
@@ -150,7 +159,8 @@ def main():
             )
         except (SourceError, ValidationError, PathError) as exc:
             # The progress stepper has already printed [FAIL] with the message.
-            print(f"\nInstall failed: {exc}")
+            msg = _color(f"\nInstall failed: {exc}", _BOLD + _RED)
+            print(msg)
             sys.exit(1)
         else:
             sys.exit(0)
@@ -193,10 +203,12 @@ def main():
             try:
                 subprocess.run(cmd, env=env, cwd=os.getcwd(), check=False)
             except KeyboardInterrupt:
-                print("\nShutting down ChaCC server...")
+                msg = _color("\nShutting down ChaCC server...", _YELLOW)
+                print(msg)
             sys.exit(0)
         elif args.run_subcommand is None:
-            print("Error: 'run' command requires a subcommand. Use 'chacc run server'.")
+            msg = _color("Error: 'run' command requires a subcommand. Use 'chacc run server'.", _YELLOW)
+            print(msg)
             run_parser.print_help()
             sys.exit(1)
         else:

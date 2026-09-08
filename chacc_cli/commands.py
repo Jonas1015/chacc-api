@@ -442,7 +442,8 @@ def install_module(
                 shutil.rmtree(staging, ignore_errors=True)
 
         progress_mod.final(
-            f"Module '{meta.name}' installed. Restart the ChaCC server to activate it."
+            f"Module '{meta.name}' installed. Restart the ChaCC server to activate it.",
+            success=True,
         )
         if meta.has_requirements:
             progress_mod.warn_always(
@@ -496,26 +497,26 @@ def deploy_module(chacc_file_path: str):
 
             if response.status_code == 200:
                 cli_logger.info("=" * 60)
-                cli_logger.info("🟢 Module deployed successfully!")
-                cli_logger.info("🟢 Response: %s", response.json().get("message", "No message"))
+                cli_logger.info("SUCCESS: Module deployed successfully!")
+                cli_logger.info("SUCCESS: Response: %s", response.json().get("message", "No message"))
                 cli_logger.info(
-                    "🟢 Please restart your remote ChaCC API server to activate the module."
+                    "SUCCESS: Please restart your remote ChaCC API server to activate the module."
                 )
                 cli_logger.info("=" * 60)
             else:
-                cli_logger.error(f"🔴 Deployment failed with status code {response.status_code}")
+                cli_logger.error(f"FAILED: Deployment failed with status code {response.status_code}")
                 try:
                     error_data = response.json()
                     cli_logger.error(
-                        f"Error details: {error_data.get('detail', 'No details available')}"
+                        f"FAILED: Error details: {error_data.get('detail', 'No details available')}"
                     )
                 except (ValueError, AttributeError):
-                    cli_logger.error(f"Response: {response.text}")
+                    cli_logger.error(f"FAILED: Response: {response.text}")
 
     except requests.exceptions.Timeout:
-        cli_logger.error(f"🔴 Deployment timed out after {deploy_timeout} seconds")
+        cli_logger.error(f"FAILED: Deployment timed out after {deploy_timeout} seconds")
     except requests.exceptions.ConnectionError:
-        cli_logger.error(f"🔴 Could not connect to {deploy_url}")
-        cli_logger.info("💡 Check that your ChaCC API server is running and accessible")
+        cli_logger.error(f"FAILED: Could not connect to {deploy_url}")
+        cli_logger.info("NOTE: Check that your ChaCC API server is running and accessible")
     except Exception as e:  # noqa: BLE001
-        cli_logger.error(f"🔴 Deployment error: {e}")
+        cli_logger.error(f"FAILED: Deployment error: {e}")

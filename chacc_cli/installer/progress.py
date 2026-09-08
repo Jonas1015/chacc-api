@@ -12,11 +12,19 @@ still printed because callers need to confirm success/failure).
 
 from __future__ import annotations
 
+import sys
 from contextlib import contextmanager
 
 _ARROW = "->"
 _OK = "[OK]"
 _FAIL = "[FAIL]"
+
+_RED = "\033[31m"
+_GREEN = "\033[32m"
+_YELLOW = "\033[33m"
+_DIM = "\033[2m"
+_BOLD = "\033[1m"
+_RESET = "\033[0m"
 
 
 _quiet_flag: dict[str, bool] = {}
@@ -29,6 +37,14 @@ def set_quiet(value: bool) -> None:
 
 def get_quiet() -> bool:
     return bool(_quiet_flag.get("value", False))
+
+
+def _is_tty() -> bool:
+    return sys.stdout.isatty()
+
+
+def _color(text: str, ansi: str) -> str:
+    return f"{ansi}{text}{_RESET}" if _is_tty() else text
 
 
 def _print(line: str) -> None:
@@ -50,17 +66,20 @@ def step(message: str, detail: str = ""):
             resolved = source_mod.resolve(...)
     """
     if not get_quiet():
-        suffix = f"  ({detail})" if detail else ""
-        _print(f"{_ARROW} {message}{suffix}")
+        arrow = _color(_ARROW, _DIM)
+        suffix = f"  {_color(detail, _DIM)}" if detail else ""
+        _print(f"{arrow} {message}{suffix}")
     try:
         yield
     except Exception as exc:
         if not get_quiet():
-            _print(f"{_FAIL} {message}: {exc}")
+            fail = _color(_FAIL, _BOLD + _RED)
+            _print(f"{fail} {message}: {exc}")
         raise
     else:
         if not get_quiet():
-            _print(f"{_OK} {message}")
+            ok = _color(_OK, _BOLD + _GREEN)
+            _print(f"{ok} {message}")
 
 
 def info(message: str) -> None:
@@ -72,17 +91,23 @@ def info(message: str) -> None:
 def warn(message: str) -> None:
     """Print a warning line. Suppressed when --quiet."""
     if not get_quiet():
-        _print(f"   ! {message}")
+        prefix = _color("!", _BOLD + _YELLOW)
+        _print(f"   {prefix} {message}")
 
 
 def warn_always(message: str) -> None:
     """Print a warning line even when --quiet. Use sparingly for critical info."""
-    _print(f"   ! {message}")
+    prefix = _color("!", _BOLD + _YELLOW)
+    _print(f"   {prefix} {message}")
 
 
-def final(message: str) -> None:
+def final(message: str, success: bool = True) -> None:
     """
     Print the final result line. Always shown (even in --quiet) because
     callers need to confirm whether the install succeeded.
     """
-    _print(f"\n{message}")
+    if success:
+        line = _color(message, _GREEN)
+    else:
+        line = _color(message, _RED)
+    _print(f"\n{line}")
